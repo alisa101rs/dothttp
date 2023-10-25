@@ -1,9 +1,9 @@
-use crate::parser::Selection;
-use crate::Result;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Map;
 use std::fmt::Debug;
+
+use serde::{Deserialize, Serialize};
+use serde_json::Map;
+
+use crate::{parser::Selection, Result};
 
 #[cfg(feature = "boa")]
 pub mod boa;

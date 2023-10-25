@@ -1,14 +1,16 @@
-use crate::script_engine::{handle, Script, ScriptEngine};
-
-use boa::exec::Executor;
-use boa::exec::Interpreter;
-use boa::realm::Realm;
-use boa::syntax::ast::node::Node;
-use boa::syntax::lexer::Lexer;
-use boa::syntax::parser::Parser;
-
-use crate::{Response, Result};
 use std::convert::From;
+
+use anyhow::anyhow;
+use boa::{
+    exec::{Executor, Interpreter},
+    realm::Realm,
+    syntax::{ast::node::Node, lexer::Lexer, parser::Parser},
+};
+
+use crate::{
+    script_engine::{handle, Script, ScriptEngine},
+    Response, Result,
+};
 
 pub struct BoaScriptEngine {
     interpreter: Interpreter,

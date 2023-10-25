@@ -1,19 +1,17 @@
-#[macro_use]
-extern crate anyhow;
-#[macro_use]
-extern crate pest_derive;
-#[macro_use]
-extern crate pest;
+use std::{
+    borrow::BorrowMut,
+    fs::read_to_string,
+    path::{Path, PathBuf},
+};
 
-use crate::http_client::reqwest::ReqwestHttpClient;
-use crate::http_client::HttpClient;
-use crate::output::Outputter;
-use crate::parser::{parse, Header};
-use crate::script_engine::{create_script_engine, ScriptEngine};
 use anyhow::Context;
-use std::borrow::BorrowMut;
-use std::fs::read_to_string;
-use std::path::{Path, PathBuf};
+
+use crate::{
+    http_client::{reqwest::ReqwestHttpClient, HttpClient},
+    output::Output,
+    parser::{parse, Header},
+    script_engine::{create_script_engine, ScriptEngine},
+};
 
 mod http_client;
 pub mod output;
@@ -41,7 +39,7 @@ impl ClientConfig {
 pub struct Runtime<'a> {
     engine: Box<dyn ScriptEngine>,
     snapshot_file: PathBuf,
-    outputter: &'a mut dyn Outputter,
+    output: &'a mut dyn Output,
     client: Box<dyn HttpClient>,
 }
 
@@ -50,7 +48,7 @@ impl<'a> Runtime<'a> {
         env: &str,
         snapshot_file: &Path,
         env_file: &Path,
-        outputter: &'a mut dyn Outputter,
+        output: &'a mut dyn Output,
         config: ClientConfig,
     ) -> Result<Runtime<'a>> {
         let env_file = match read_to_string(env_file) {
@@ -72,41 +70,38 @@ impl<'a> Runtime<'a> {
         let client = Box::new(ReqwestHttpClient::create(config));
 
         Ok(Runtime {
-            outputter,
+            output,
             snapshot_file: PathBuf::from(snapshot_file),
             engine,
             client,
         })
     }
 
-    pub fn execute(&mut self, script_file: &Path, offset: usize, all: bool) -> Result<()> {
+    pub fn execute(&mut self, script_file: &Path, request: Option<usize>) -> Result<()> {
         let file = read_to_string(&script_file)
             .with_context(|| format!("Failed opening script file: {:?}", script_file))?;
         let file = &mut parse(script_file.to_path_buf(), file.as_str())
             .with_context(|| format!("Failed parsing file: {:?}", script_file))?;
 
-        let request_scripts = file.request_scripts(offset, all);
+        let request_scripts = file.request_scripts(request);
 
         let engine = &mut *self.engine;
-        let outputter = self.outputter.borrow_mut();
+        let outputter = self.output.borrow_mut();
         let client = &self.client;
 
-        for request_script in request_scripts {
+        for (index, request_script) in request_scripts.enumerate() {
             let request = process(engine, &request_script.request)
-                .with_context(|| format!("Failed processing request found on line {}", offset))?;
+                .with_context(|| format!("Failed processing request #{index}"))?;
             outputter
                 .request(&request)
-                .with_context(|| format!("Failed outputting request found on line {}", offset))?;
+                .with_context(|| format!("Failed outputting request #{index}"))?;
 
             let response = client
                 .execute(&request)
-                .with_context(|| format!("Error executing request found on line {}", offset))?;
-            outputter.response(&response).with_context(|| {
-                format!(
-                    "Error outputting response for request found on line {}",
-                    offset
-                )
-            })?;
+                .with_context(|| format!("Error executing request #{index}"))?;
+            outputter
+                .response(&response)
+                .with_context(|| format!("Error outputting response for request #{index}",))?;
 
             if let Some(parser::Handler { script, selection }) = &request_script.handler {
                 engine
@@ -117,12 +112,7 @@ impl<'a> Runtime<'a> {
                         },
                         &response,
                     )
-                    .with_context(|| {
-                        format!(
-                            "Error handling response for request found on line {}",
-                            offset
-                        )
-                    })?;
+                    .with_context(|| format!("Error handling response for request #{index}",))?;
             }
 
             engine.reset().unwrap();
@@ -139,7 +129,7 @@ impl<'a> Runtime<'a> {
 }
 
 fn process_header(engine: &mut dyn ScriptEngine, header: &Header) -> Result<(String, String)> {
-    let parser::Header {
+    let Header {
         field_name,
         field_value,
         ..

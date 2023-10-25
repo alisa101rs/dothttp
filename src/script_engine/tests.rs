@@ -1,5 +1,7 @@
-use crate::script_engine::{create_script_engine, inject, Script, ScriptEngine};
-use crate::{Response, Version};
+use crate::{
+    script_engine::{create_script_engine, inject, Script, ScriptEngine},
+    Response, Version,
+};
 
 #[cfg(test)]
 fn setup(src: &'static str) -> Box<dyn ScriptEngine> {

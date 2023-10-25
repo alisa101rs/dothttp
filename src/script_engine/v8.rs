@@ -1,5 +1,5 @@
-use crate::script_engine::{handle, Script, ScriptEngine};
-use crate::Result;
+use std::{convert::From, sync::Once};
+
 use rusty_v8::{
     inspector::{
         StringView, V8Inspector, V8InspectorClientBase, V8InspectorClientImpl, V8StackTrace,
@@ -8,8 +8,11 @@ use rusty_v8::{
     Context, ContextScope, Exception, Global, HandleScope, Isolate, OwnedIsolate,
     Script as V8Script, String as V8String, TryCatch, V8,
 };
-use std::convert::From;
-use std::sync::Once;
+
+use crate::{
+    script_engine::{handle, Script, ScriptEngine},
+    Result,
+};
 
 static V8_INIT: Once = Once::new();
 pub struct V8ScriptEngine {

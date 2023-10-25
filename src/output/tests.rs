@@ -1,7 +1,5 @@
 use crate::{
-    output::{
-        parse_format, prettify_response_body, print::FormattedOutputter, FormatItem, Outputter,
-    },
+    output::{parse_format, prettify_response_body, print::FormattedOutput, FormatItem, Output},
     Method, Request, Response, Version,
 };
 
@@ -69,7 +67,7 @@ fn test_format_request() {
     let empty_format = parse_format("").expect("valid format");
 
     let mut buffer = Vec::new();
-    let mut empty_output = FormattedOutputter::new(&mut buffer, empty_format.clone(), empty_format);
+    let mut empty_output = FormattedOutput::new(&mut buffer, empty_format.clone(), empty_format);
     empty_output
         .request(&request)
         .expect("print works correctly");
@@ -80,7 +78,7 @@ fn test_format_request() {
 
     let full_format = parse_format("%R\n%H\n%B\n").expect("valid format");
     let mut buffer = Vec::new();
-    let mut outputter = FormattedOutputter::new(&mut buffer, full_format.clone(), full_format);
+    let mut outputter = FormattedOutput::new(&mut buffer, full_format.clone(), full_format);
     outputter.request(&request).expect("print works correctly");
     outputter
         .response(&response)
@@ -105,7 +103,7 @@ Content-Type: text/json
     let first_line_headers = parse_format("%R\n%H\n").expect("valid format");
     let mut buffer = Vec::new();
     let mut outputter =
-        FormattedOutputter::new(&mut buffer, first_line_headers.clone(), first_line_headers);
+        FormattedOutput::new(&mut buffer, first_line_headers.clone(), first_line_headers);
     outputter.request(&request).expect("print works correctly");
     outputter
         .response(&response)
@@ -123,8 +121,7 @@ Content-Type: text/json
 
     let only_first_line = parse_format("%R\n").expect("valid format");
     let mut buffer = Vec::new();
-    let mut outputter =
-        FormattedOutputter::new(&mut buffer, only_first_line.clone(), only_first_line);
+    let mut outputter = FormattedOutput::new(&mut buffer, only_first_line.clone(), only_first_line);
     outputter.request(&request).expect("print works correctly");
     outputter
         .response(&response)

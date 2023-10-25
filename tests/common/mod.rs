@@ -1,6 +1,5 @@
-use std::io;
-use std::io::Write;
-use std::str::from_utf8;
+use std::{io, io::Write, str::from_utf8};
+
 use tempfile::{NamedTempFile, TempPath};
 
 pub fn create_file(contents: &str) -> TempPath {

@@ -1,10 +1,12 @@
-use crate::common::{create_file, DebugWriter};
-use dot_http::output::parse_format;
-use dot_http::output::print::FormattedOutputter;
-use dot_http::{ClientConfig, Runtime};
-use httpmock::Method::POST;
-use httpmock::MockServer;
 use std::borrow::BorrowMut;
+
+use dot_http::{
+    output::{parse_format, print::FormattedOutput},
+    ClientConfig, Runtime,
+};
+use httpmock::{Method::POST, MockServer};
+
+use crate::common::{create_file, DebugWriter};
 
 mod common;
 
@@ -54,7 +56,7 @@ GET http://localhost:{port}/multi_get_third\
     let writer = &mut DebugWriter(String::new());
     let request_format = "%R\n";
     let response_format = "%R\n%H\n%B\n";
-    let mut outputter = FormattedOutputter::new(
+    let mut outputter = FormattedOutput::new(
         writer,
         parse_format(request_format).unwrap(),
         parse_format(response_format).unwrap(),

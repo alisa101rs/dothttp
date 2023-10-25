@@ -1,20 +1,23 @@
-use crate::output::{prettify_response_body, FormatItem, Outputter};
-use crate::{Request, Response, Result};
 use std::io::Write;
 
-pub struct FormattedOutputter<'a, W: Write> {
+use crate::{
+    output::{prettify_response_body, FormatItem, Output},
+    Request, Response, Result,
+};
+
+pub struct FormattedOutput<'a, W: Write> {
     writer: &'a mut W,
     request_format: Vec<FormatItem>,
     response_format: Vec<FormatItem>,
 }
 
-impl<'a, W: Write> FormattedOutputter<'a, W> {
+impl<'a, W: Write> FormattedOutput<'a, W> {
     pub fn new(
         writer: &mut W,
         request_format: Vec<FormatItem>,
         response_format: Vec<FormatItem>,
-    ) -> FormattedOutputter<W> {
-        FormattedOutputter {
+    ) -> FormattedOutput<W> {
+        FormattedOutput {
             writer,
             request_format,
             response_format,
@@ -36,7 +39,7 @@ fn format_body(body: &Option<String>) -> String {
     }
 }
 
-impl<'a, W: Write> Outputter for FormattedOutputter<'a, W> {
+impl<'a, W: Write> Output for FormattedOutput<'a, W> {
     fn response(&mut self, response: &Response) -> Result<()> {
         let Response {
             headers,
@@ -58,6 +61,7 @@ impl<'a, W: Write> Outputter for FormattedOutputter<'a, W> {
         }
         Ok(())
     }
+
     fn request(&mut self, request: &Request) -> Result<()> {
         let Request {
             method,

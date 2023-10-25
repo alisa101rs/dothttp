@@ -3,8 +3,11 @@ pub mod print;
 #[cfg(test)]
 mod tests;
 
-use crate::{Method, Request, Response, Result, Version};
 use std::fmt;
+
+use anyhow::anyhow;
+
+use crate::{Method, Request, Response, Result, Version};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum FormatItem {
@@ -58,7 +61,7 @@ fn prettify_response_body(body: &str) -> String {
     }
 }
 
-pub trait Outputter {
+pub trait Output {
     fn response(&mut self, response: &Response) -> Result<()>;
     fn request(&mut self, request: &Request) -> Result<()>;
 }

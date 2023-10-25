@@ -1,8 +1,14 @@
-use crate::http_client::{ClientConfig, HttpClient};
-use crate::{Method, Request, Response, Result, Version};
-use reqwest::blocking::{Client, RequestBuilder};
-use reqwest::header::HeaderMap;
 use std::convert::{TryFrom, TryInto};
+
+use reqwest::{
+    blocking::{Client, RequestBuilder},
+    header::HeaderMap,
+};
+
+use crate::{
+    http_client::{ClientConfig, HttpClient},
+    Method, Request, Response, Result, Version,
+};
 
 pub struct ReqwestHttpClient {
     client: Client,

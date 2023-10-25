@@ -1,17 +1,17 @@
 [package]
-authors = ["Brian Payne <bwpayne@gmail.com>"]
+authors = ["Brian Payne <bwpayne@gmail.com>", "Alisa Gorelova <nanopro1g@gmail.com>"]
 edition = "2021"
 name = "dot-http"
-version = "0.3.0"
+version = "0.4.0"
 readme = "README.md"
-description = "dot-http is a text-based scriptable HTTP client. It is a simple language that resembles the actual HTTP protocol but with additional features to make it practical for someone who builds and tests APIs."
-repository = "https://github.com/bayne/dot-http"
-keywords = ["http", "scriptable", "javascript", "API"]
+description = "dothttp is a text-based scriptable HTTP client. It is a fork for dot-http. It is a simple language that resembles the actual HTTP protocol but with additional features to make it practical for someone who builds and tests APIs."
+repository = "https://github.com/alisa101rs/dothttp"
+keywords = ["http", "scriptable", "vrl", "API"]
 categories = ["command-line-utilities", "development-tools::testing", "web-programming::http-client"]
 license = "Apache-2.0"
 
 [[bin]]
-name = "dot-http"
+name = "dothttp"
 path = "src/main.rs"
 
 [badges]
@@ -20,13 +20,13 @@ travis-ci = { repository = "bayne/dot-http" }
 appveyor = { repository = "bayne/dot-http", branch = "master", service = "github" }
 
 [dependencies]
-Boa = {version ="0.8.0", optional = true}
-rusty_v8 = {version = "0.5", optional = true} # Warning! Experimental
+Boa = { version = "0.8.0", optional = true }
+rusty_v8 = { version = "0.5", optional = true } # Warning! Experimental
 reqwest = { version = "0.11.11", features = ["blocking"] }
 tokio = { version = "1.13.1", features = ["sync"] }
 pest = "2.1.2"
 pest_derive = "2.1.0"
-clap = "2.33.0"
+clap = { version = "4.4.6", features = ["derive"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"

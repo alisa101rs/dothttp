@@ -1,15 +1,16 @@
 #[cfg(test)]
 pub mod tests;
 
+use std::{
+    error, fmt,
+    fmt::{Display, Formatter},
+    path::PathBuf,
+};
+
+use pest::{error::LineColLocation, iterators::Pair, Parser, Span};
+use pest_derive::Parser;
+
 use crate::Result;
-use pest::error::LineColLocation;
-use pest::iterators::Pair;
-use pest::Parser;
-use pest::Span;
-use std::error;
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
 
 #[derive(Parser)]
 #[grammar = "parser/parser.pest"]
@@ -378,18 +379,13 @@ impl Selection {
 }
 
 impl File {
-    pub fn request_scripts(
-        &self,
-        offset: usize,
-        all: bool,
-    ) -> impl Iterator<Item = &RequestScript> {
+    pub fn request_scripts(&self, request: Option<usize>) -> impl Iterator<Item = &RequestScript> {
         let mut scripts = self
             .request_scripts
             .iter()
-            .filter(move |request_script| {
-                (all || request_script.selection.start.line <= offset)
-                    && request_script.selection.end.line > offset
-            })
+            .enumerate()
+            .filter(move |&(index, _)| (request.is_none() || Some(index) == request))
+            .map(|(_, s)| s)
             .peekable();
 
         match scripts.peek() {
