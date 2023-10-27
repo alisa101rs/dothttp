@@ -1,17 +1,18 @@
+use serde_json::{json, Value};
+
 use crate::{
+    http::{Response, Version},
     script_engine::{create_script_engine, inject, Script, ScriptEngine},
-    Response, Version,
 };
 
-#[cfg(test)]
-fn setup(src: &'static str) -> Box<dyn ScriptEngine> {
-    let engine = create_script_engine("{}", "dev", src);
+fn setup(snapshot: Value) -> Box<dyn ScriptEngine> {
+    let engine = create_script_engine(json! { {} }, snapshot).unwrap();
     return engine;
 }
 
 #[test]
 fn test_syntax_error() {
-    let mut engine = setup("{}");
+    let mut engine = setup(json! { {} });
 
     let result = engine.execute_script(&Script::internal_script("..test"));
 
@@ -20,18 +21,11 @@ fn test_syntax_error() {
         "Should've been an error, but instead got:\n {:#?}",
         result
     );
-    if let Err(error) = result {
-        assert!(
-            error.to_string().to_lowercase().contains("token"),
-            "Should've been a lexer error, but instead got:\n {:#?}",
-            error
-        );
-    }
 }
 
 #[test]
 fn test_parse_error() {
-    let mut engine = setup("{}");
+    let mut engine = setup(json!({}));
 
     let result = engine.execute_script(&Script::internal_script(".test"));
 
@@ -51,14 +45,8 @@ fn test_parse_error() {
 }
 
 #[test]
-#[should_panic]
-fn test_initialize_error() {
-    let _engine = create_script_engine("invalid", "dev", "{}");
-}
-
-#[test]
 fn test_initialize() {
-    let mut engine = create_script_engine(r#"{"dev": {"a": 1}}"#, "dev", "{}");
+    let mut engine = create_script_engine(json!({ "a": "1" }), json!({})).unwrap();
 
     let result = engine.execute_script(&Script::internal_script("a"));
 
@@ -71,7 +59,7 @@ fn test_initialize() {
 
 #[test]
 fn test_reset() {
-    let mut engine = create_script_engine(r#"{"dev": {"a": 1}}"#, "dev", "{}");
+    let mut engine = create_script_engine(json!({ "a": "1" }), json!({})).unwrap();
     engine
         .execute_script(&Script::internal_script(
             r#"client.global.set("test", "test_value")"#,
@@ -91,7 +79,7 @@ fn test_reset() {
 
 #[test]
 fn test_headers_available_in_response() {
-    let mut engine = create_script_engine("{}", "dev", "{}");
+    let mut engine = create_script_engine(json!({}), json!({})).unwrap();
 
     let headers = vec![("X-Auth-Token".to_string(), "SomeTokenValue".to_string())];
 

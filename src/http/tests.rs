@@ -1,9 +1,6 @@
 use httpmock::{Method::POST, MockServer};
 
-use crate::{
-    http_client::{reqwest::ReqwestHttpClient, HttpClient},
-    Method, Request,
-};
+use crate::http::{reqwest::ReqwestHttpClient, HttpClient, Method, Request};
 
 #[test]
 fn execute() {

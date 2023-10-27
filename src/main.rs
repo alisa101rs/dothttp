@@ -2,7 +2,7 @@ use std::{borrow::BorrowMut, io::stdout, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
-use dot_http::{
+use dothttp::{
     output::{parse_format, print::FormattedOutput},
     ClientConfig, Runtime,
 };
@@ -22,13 +22,13 @@ struct Args {
     #[arg(short, long)]
     environment: Option<String>,
 
-    file: PathBuf,
+    files: Vec<PathBuf>,
 
     /// Specific request number to run
     #[arg(short, long)]
     request: Option<usize>,
 
-    #[arg(long = "danger-accept-invalid-certs")]
+    #[arg(long = "accept-invalid-certs")]
     accept_invalid_cert: bool,
 }
 
@@ -37,17 +37,16 @@ fn main() -> Result<()> {
         environment_file,
         snapshot,
         environment,
-        file,
+        files,
         request,
         accept_invalid_cert,
     } = Args::parse();
 
-    let script_file = file;
     let env = environment.unwrap_or("dev".to_owned());
-    let env_file = environment_file.unwrap_or_else(|| "./env.json".into());
+    let env_file = environment_file.unwrap_or_else(|| "http-client.env.json".into());
     let snapshot_file = snapshot.unwrap_or_else(|| ".snapshot.json".into());
     let ignore_certificates: bool = accept_invalid_cert;
-    let response_format = "%R\n%H\n%B\n";
+    let response_format = "%R\n%H\n%B\n\n";
     let request_format = "%R\n\n";
 
     let client_config = ClientConfig::new(!ignore_certificates);
@@ -68,5 +67,5 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    runtime.execute(&script_file, request)
+    runtime.execute(files.into_iter(), request)
 }

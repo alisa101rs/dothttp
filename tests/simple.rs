@@ -1,6 +1,6 @@
 use std::borrow::BorrowMut;
 
-use dot_http::{
+use dothttp::{
     output::{parse_format, print::FormattedOutput},
     ClientConfig, Runtime,
 };
@@ -43,7 +43,9 @@ fn simple_get() {
         ClientConfig::default(),
     )
     .unwrap();
-    runtime.execute(&script_file, 1, false).unwrap();
+    runtime
+        .execute(Some(script_file.to_path_buf()), Some(1))
+        .unwrap();
 
     let DebugWriter(buf) = writer;
 
@@ -51,12 +53,14 @@ fn simple_get() {
         *buf,
         format!(
             "\
+[{filename} / #1]
 GET http://localhost:{}/simple_get/30
 HTTP/1.1 200 OK
 date: \n\
 content-length: 0\
 \n\n\n",
-            server.port()
+            server.port(),
+            filename = script_file.file_name().unwrap().to_str().unwrap(),
         )
     );
 }
@@ -103,7 +107,9 @@ POST http://localhost:{port}/simple_post
     )
     .unwrap();
 
-    runtime.execute(&script_file, 1, false).unwrap();
+    runtime
+        .execute(Some(script_file.to_path_buf()), Some(1))
+        .unwrap();
 
     let DebugWriter(buf) = writer;
 
@@ -111,6 +117,7 @@ POST http://localhost:{port}/simple_post
         *buf,
         format!(
             "\
+[{filename} / #1]
 POST http://localhost:{port}/simple_post
 HTTP/1.1 200 OK
 date: \n\
@@ -120,7 +127,8 @@ content-length: 15\
   \"value\": true
 }}\n\
             ",
-            port = server.port()
+            port = server.port(),
+            filename = script_file.file_name().unwrap().to_str().unwrap(),
         )
     );
 }

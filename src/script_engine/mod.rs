@@ -3,13 +3,10 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
-use crate::{parser::Selection, Result};
+use crate::{http, parser::Selection, script_engine::report::TestsReport, Result};
 
-#[cfg(feature = "boa")]
 pub mod boa;
-
-#[cfg(feature = "rusty_v8")]
-pub mod v8;
+pub mod report;
 
 #[cfg(test)]
 mod tests;
@@ -42,57 +39,11 @@ pub struct InlineScript {
 }
 
 pub fn create_script_engine(
-    env_script: &str,
-    env: &str,
-    snapshot_script: &str,
-) -> Box<dyn ScriptEngine> {
-    if let Some(engine) = create_script_boa_engine(env_script, env, snapshot_script) {
-        engine
-    } else if let Some(engine) = create_script_v8_engine(env_script, env, snapshot_script) {
-        engine
-    } else {
-        panic!("No Script Engine compiled in the binary");
-    }
-}
-
-#[cfg(feature = "boa")]
-fn create_script_boa_engine(
-    env_script: &str,
-    env: &str,
-    snapshot_script: &str,
-) -> Option<Box<dyn ScriptEngine>> {
+    environment: serde_json::Value,
+    snapshot: serde_json::Value,
+) -> Result<Box<dyn ScriptEngine>> {
     use crate::script_engine::boa::BoaScriptEngine;
-    Some(Box::new(
-        BoaScriptEngine::new(env_script, env, snapshot_script).unwrap(),
-    ))
-}
-#[cfg(not(feature = "boa"))]
-fn create_script_boa_engine(
-    _env_script: &str,
-    _env: &str,
-    _snapshot_script: &str,
-) -> Option<Box<dyn ScriptEngine>> {
-    None
-}
-
-#[cfg(feature = "rusty_v8")]
-fn create_script_v8_engine(
-    env_script: &str,
-    env: &str,
-    snapshot_script: &str,
-) -> Option<Box<dyn ScriptEngine>> {
-    use crate::script_engine::v8::V8ScriptEngine;
-    Some(Box::new(
-        V8ScriptEngine::new(env_script, env, snapshot_script).unwrap(),
-    ))
-}
-#[cfg(not(feature = "rusty_v8"))]
-fn create_script_v8_engine(
-    _env_script: &str,
-    _env: &str,
-    _snapshot_script: &str,
-) -> Option<Box<dyn ScriptEngine>> {
-    None
+    Ok(Box::new(BoaScriptEngine::new(environment, snapshot)?))
 }
 
 pub struct Script<'a> {
@@ -116,9 +67,11 @@ pub trait ScriptEngine {
 
     fn reset(&mut self) -> Result<()>;
 
-    fn snapshot(&mut self) -> Result<String>;
+    fn snapshot(&mut self) -> Result<serde_json::Value>;
 
-    fn handle(&mut self, script: &Script, response: &crate::Response) -> Result<()>;
+    fn report(&mut self) -> Result<TestsReport>;
+
+    fn handle(&mut self, script: &Script, response: &http::Response) -> Result<()>;
 
     fn process(&mut self, value: Value<Unprocessed>) -> Result<Value<Processed>> {
         match value {
@@ -162,8 +115,8 @@ struct Response {
     status: u16,
 }
 
-impl From<&crate::Response> for Response {
-    fn from(response: &crate::Response) -> Self {
+impl From<&http::Response> for Response {
+    fn from(response: &http::Response) -> Self {
         let mut headers = Map::new();
         for (key, value) in response.headers.as_slice() {
             headers.insert(key.clone(), serde_json::Value::String(value.clone()));
@@ -176,17 +129,13 @@ impl From<&crate::Response> for Response {
     }
 }
 
-fn handle(
-    engine: &mut dyn ScriptEngine,
-    script: &Script,
-    response: &crate::Response,
-) -> Result<()> {
+fn handle(engine: &mut dyn ScriptEngine, script: &Script, response: &http::Response) -> Result<()> {
     inject(engine, response)?;
     engine.execute_script(script)?;
     Ok(())
 }
 
-fn inject(engine: &mut dyn ScriptEngine, response: &crate::Response) -> Result<()> {
+fn inject(engine: &mut dyn ScriptEngine, response: &http::Response) -> Result<()> {
     let response: Response = response.into();
 
     let script = format!(

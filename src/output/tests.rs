@@ -1,6 +1,6 @@
 use crate::{
+    http::{Method, Request, Response, Version},
     output::{parse_format, prettify_response_body, print::FormattedOutput, FormatItem, Output},
-    Method, Request, Response, Version,
 };
 
 #[test]
@@ -58,9 +58,9 @@ fn test_format_request() {
         body: Some("{\"req\":\"great\"}".to_string()),
     };
     let response = Response {
+        version: Version::Http11,
         status_code: 200,
         status: "200 Ok".to_string(),
-        version: Version::Http11,
         headers: vec![("Content-Type".to_string(), "text/json".to_string())],
         body: Some("{\"resp\":\"great-resp\"}".to_string()),
     };

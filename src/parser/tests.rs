@@ -80,7 +80,10 @@ Content-Type: {{ content_type }}
 
     assert_eq!(
         request_script.as_str(),
-        "\
+        "###
+
+# Request Comment 2
+#
 GET http://example.com/{{url_param}}
 Accept: */*
 
@@ -88,6 +91,7 @@ Accept: */*
     );
 
     let mut request_script_parts = request_script.into_inner();
+    let _name = request_script_parts.next().unwrap();
     let _method = request_script_parts.next().unwrap();
     let _request_target = request_script_parts.next().unwrap();
     let _header_field = request_script_parts.next().unwrap();

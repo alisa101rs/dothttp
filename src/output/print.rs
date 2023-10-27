@@ -1,8 +1,10 @@
-use std::io::Write;
+use std::{fmt, io::Write};
 
 use crate::{
+    http,
     output::{prettify_response_body, FormatItem, Output},
-    Request, Response, Result,
+    script_engine::report::{TestResult, TestsReport},
+    Result,
 };
 
 pub struct FormattedOutput<'a, W: Write> {
@@ -40,8 +42,17 @@ fn format_body(body: &Option<String>) -> String {
 }
 
 impl<'a, W: Write> Output for FormattedOutput<'a, W> {
-    fn response(&mut self, response: &Response) -> Result<()> {
-        let Response {
+    fn section(&mut self, name: &str) -> Result<()> {
+        writeln!(self.writer, "[{name}]")?;
+        Ok(())
+    }
+
+    fn response(&mut self, response: &http::Response) -> Result<()> {
+        if self.response_format.is_empty() {
+            return Ok(());
+        }
+
+        let http::Response {
             headers,
             version,
             status,
@@ -57,13 +68,20 @@ impl<'a, W: Write> Output for FormattedOutput<'a, W> {
                 FormatItem::Chars(s) => s.clone(),
             };
 
-            self.writer.write_all(to_write.as_bytes())?;
+            if to_write.is_empty() {
+                continue;
+            }
+
+            write!(self.writer, "{to_write}")?;
         }
         Ok(())
     }
 
-    fn request(&mut self, request: &Request) -> Result<()> {
-        let Request {
+    fn request(&mut self, request: &http::Request) -> Result<()> {
+        if self.request_format.is_empty() {
+            return Ok(());
+        }
+        let http::Request {
             method,
             target,
             headers,
@@ -79,8 +97,39 @@ impl<'a, W: Write> Output for FormattedOutput<'a, W> {
                 FormatItem::Chars(s) => s.clone(),
             };
 
-            self.writer.write_all(to_write.as_bytes())?;
+            if to_write.is_empty() {
+                continue;
+            }
+
+            write!(self.writer, "{to_write}")?;
         }
         Ok(())
+    }
+
+    fn tests(&mut self, report: &TestsReport) -> Result<()> {
+        if report.is_empty() {
+            return Ok(());
+        }
+
+        for (test, result) in report.all() {
+            write!(self.writer, "Test `{test}`: ")?;
+            match result {
+                TestResult::Error { error } => writeln!(self.writer, "FAILED with {error}")?,
+                TestResult::Success => writeln!(self.writer, "OK")?,
+            }
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for http::Version {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            http::Version::Http09 => write!(f, "HTTP/0.9"),
+            http::Version::Http10 => write!(f, "HTTP/1.0"),
+            http::Version::Http11 => write!(f, "HTTP/1.1"),
+            http::Version::Http2 => write!(f, "HTTP/2"),
+            http::Version::Http3 => write!(f, "HTTP/3"),
+        }
     }
 }

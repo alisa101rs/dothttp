@@ -6,8 +6,8 @@ use reqwest::{
 };
 
 use crate::{
-    http_client::{ClientConfig, HttpClient},
-    Method, Request, Response, Result, Version,
+    http::{ClientConfig, HttpClient, Method, Request, Response, Version},
+    Result,
 };
 
 pub struct ReqwestHttpClient {
@@ -74,18 +74,6 @@ impl From<&Method> for reqwest::Method {
     }
 }
 
-impl From<reqwest::Version> for Version {
-    fn from(version: reqwest::Version) -> Self {
-        match version {
-            reqwest::Version::HTTP_09 => Version::Http09,
-            reqwest::Version::HTTP_2 => Version::Http2,
-            reqwest::Version::HTTP_10 => Version::Http10,
-            reqwest::Version::HTTP_11 => Version::Http11,
-            _ => panic!("Non-exhaustive"),
-        }
-    }
-}
-
 struct Headers(Vec<(String, String)>);
 impl TryFrom<reqwest::blocking::Response> for Response {
     type Error = anyhow::Error;
@@ -114,6 +102,19 @@ impl TryFrom<&HeaderMap> for Headers {
             headers.push((header_name.to_string(), header_value.to_str()?.to_string()))
         }
         Ok(Headers(headers))
+    }
+}
+
+impl From<reqwest::Version> for Version {
+    fn from(value: reqwest::Version) -> Self {
+        match value {
+            reqwest::Version::HTTP_09 => Version::Http09,
+            reqwest::Version::HTTP_10 => Version::Http10,
+            reqwest::Version::HTTP_11 => Version::Http11,
+            reqwest::Version::HTTP_2 => Version::Http2,
+            reqwest::Version::HTTP_3 => Version::Http3,
+            _ => unreachable!(),
+        }
     }
 }
 

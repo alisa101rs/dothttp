@@ -230,20 +230,28 @@ impl FromPair for Request {
 impl FromPair for RequestScript {
     fn from_pair(filename: PathBuf, pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
-            Rule::request_script => {
-                let mut pairs = pair.clone().into_inner();
-                RequestScript {
-                    selection: pair.as_span().to_selection(filename.clone()),
-                    request: Request::from_pair(filename.clone(), pair),
-                    handler: {
-                        let pair = pairs.find_map(|pair| match pair.as_rule() {
-                            Rule::response_handler => Some(pair),
-                            _ => None,
-                        });
-                        pair.map(|pair| Handler::from_pair(filename, pair))
-                    },
-                }
-            }
+            Rule::request_script => RequestScript {
+                name: {
+                    let mut pairs = pair.clone().into_inner();
+                    let pair = pairs.find_map(|pair| match pair.as_rule() {
+                        Rule::request_separator_with_name => Some(pair),
+                        _ => None,
+                    });
+
+                    pair.map(|pair| pair.as_str().strip_prefix("###").unwrap().trim().to_owned())
+                        .and_then(|it| if it.is_empty() { None } else { Some(it) })
+                },
+                selection: pair.as_span().to_selection(filename.clone()),
+                handler: {
+                    let mut pairs = pair.clone().into_inner();
+                    let pair = pairs.find_map(|pair| match pair.as_rule() {
+                        Rule::response_handler => Some(pair),
+                        _ => None,
+                    });
+                    pair.map(|pair| Handler::from_pair(filename.clone(), pair))
+                },
+                request: Request::from_pair(filename, pair),
+            },
             _ => invalid_pair(Rule::request_script, pair.as_rule()),
         }
     }
@@ -331,6 +339,7 @@ pub struct File {
 
 #[derive(Debug)]
 pub struct RequestScript {
+    pub name: Option<String>,
     pub request: Request,
     pub handler: Option<Handler>,
     pub selection: Selection,
@@ -379,13 +388,15 @@ impl Selection {
 }
 
 impl File {
-    pub fn request_scripts(&self, request: Option<usize>) -> impl Iterator<Item = &RequestScript> {
+    pub fn request_scripts(
+        &self,
+        request: Option<usize>,
+    ) -> impl Iterator<Item = (usize, &RequestScript)> {
         let mut scripts = self
             .request_scripts
             .iter()
             .enumerate()
-            .filter(move |&(index, _)| (request.is_none() || Some(index) == request))
-            .map(|(_, s)| s)
+            .filter(move |&(index, _)| (request.is_none() || Some(index + 1) == request))
             .peekable();
 
         match scripts.peek() {

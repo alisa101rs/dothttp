@@ -1,52 +1,55 @@
-<!-- cargo-sync-readme start -->
+## **This is a fork of existing tool [dot-http](https://github.com/bayne/dot-http)**
 
-# dot-http
+# dothttp
 
-![Verify](https://github.com/bayne/dot-http/workflows/Verify/badge.svg?event=push&branch=master)
-[![gitmoji](https://img.shields.io/badge/gitmoji-%20%F0%9F%98%9C%20%F0%9F%98%8D-FFDD67.svg?style=flat-square)](https://github.com/carloscuesta/gitmoji)
-![Powered by Rust](https://img.shields.io/badge/Powered%20By-Rust-orange?style=flat-square)
 
-dot-http is a text-based scriptable HTTP client. It is a simple language that resembles the actual HTTP protocol but with just a smidgen of magic to make it more practical for someone who builds and tests APIs.
+dothttp is a text-based scriptable HTTP client. 
+It is a simple language that resembles the actual HTTP protocol but with just a smidgen of magic to make it more practical for someone who builds and tests APIs.
 
-![demo](https://user-images.githubusercontent.com/712014/72685883-36b2f700-3aa3-11ea-8a89-0e454391579f.gif)
+dothttp aims to provide full compatability with IntelliJ [Http Client](https://www.jetbrains.com/help/idea/http-client-in-product-code-editor.html).
+
+Current list of feature support:
+- [x] Environment Files
+- [x] Variables
+- [x] Special variables: `$random`, `$timestamp` and `$isoTimestamp`
+- [x] Response handlers
+- [x] Response tests
+- [ ] Posting request bodies from files
+- [ ] Pre-request scripts
+- [ ] Cookies
+- [ ] gRPC requests
+- [ ] WebSocket requests
+- [ ] GraphQL
+ 
+## Things to consider
+- [ ] terminal UI with [ratatui](https://github.com/ratatui-org/ratatui)
+- [ ] stress test support
 
 ## Installation
-
-### Script
-
-Enter the following in a command prompt:
-
-```text,no_run
-curl -LSfs https://japaric.github.io/trust/install.sh | sh -s -- --git bayne/dot-http
-```
 
 ### Binary releases
 
 The easiest way for most users is simply to download the prebuilt binaries.
 You can find binaries for various platforms on the
-[release](https://github.com/bayne/dot-http/releases) page.
+[release](https://github.com/alisa101rs/dothttp/releases) page.
 
 ### Cargo
 
 First, install [cargo](https://rustup.rs/). Then:
 
 ```bash,no_run
-$ cargo install dot-http
+$ cargo install dothttp
 ```
 
 You will need to use the stable release for this to work; if in doubt run
 
 ```bash,no_run
-rustup run stable cargo install dot-http
+rustup run stable cargo install dothttp
 ```
 
 ## Usage
 
-See `dot-http --help` for usage.
-
-### Vim
-
-See this [plugin](https://github.com/bayne/vim-dot-http) to use dot-http within vim.
+See `dothttp --help` for usage.
 
 ### The request
 
@@ -59,7 +62,7 @@ Accept: */*
 ```
 Executing that script just prints the response to stdout:
 ```text,no_run
-$ dot-http simple.http
+$ dothttp simple.http
 GET http://httpbin.org/get
 
 HTTP/1.1 200 OK
@@ -112,7 +115,7 @@ X-Auth-Token: {{token}}
 
 Note that the variables are replaced by their values
 ```text,no_run
-$ dot-http simple_with_variables.http
+$ dothttp simple_with_variables.http
 POST http://httpbin.org/post
 
 HTTP/1.1 200 OK
@@ -174,11 +177,11 @@ Specifying different environments when invoking the command results in different
 for the variables in the script
 
 ```text,no_run
-$ dot-http -e dev env_demo.http
+$ dothttp -e dev env_demo.http
 GET http://localhost
 X-Auth-Token: SuperSecretToken
 
-$ dot-http -e prod env_demo.htp
+$ dothttp -e prod env_demo.htp
 GET http://example.com
 X-Auth-Token: ProductionToken
 ```
@@ -215,7 +218,7 @@ X-Auth-Token: {{auth_token}}
 Data from a previous request
 
 ```text,no_run
-$ dot-http test.http
+$ dothttp test.http
 POST http://httpbin.org/post
 
 HTTP/1.1 200 OK
@@ -250,50 +253,13 @@ connection: keep-alive
 }
 ```
 
-Can populate data in a future request
-
-```text,no_run
-$ dot-http -l 16 test.http
-PUT http://httpbin.org/put
-
-HTTP/1.1 200 OK
-access-control-allow-credentials: true
-access-control-allow-origin: *
-content-type: application/json
-date: Sat, 18 Jan 2020 21:02:28 GMT
-referrer-policy: no-referrer-when-downgrade
-server: nginx
-x-content-type-options: nosniff
-x-frame-options: DENY
-x-xss-protection: 1; mode=block
-content-length: 336
-connection: keep-alive
-
-{
-  "args": {},
-  "data": "{\r\n    \"id\": 237\r\n}",
-  "files": {},
-  "form": {},
-  "headers": {
-    "Accept": "*/*",
-    "Content-Length": "19",
-    "Host": "httpbin.org",
-    "X-Auth-Token": "sometoken"
-  },
-  "json": {
-    "id": 237
-  },
-  "url": "https://httpbin.org/put"
-}
-```
-
 ## Contributing
 
 Contributions and suggestions are very welcome!
 
-Please create an issue before submitting a PR, PRs will only be accepted if they reference an existing issue. If you have a suggested change please create an issue first so that we can discuss it.
+Please create an issue before submitting a PR, PRs will only be accepted if they reference an existing issue. 
+If you have a suggested change please create an issue first so that we can discuss it.
 
 ## License
-[Apache License 2.0](https://github.com/bayne/dot-http/blob/master/LICENSE)
+[Apache License 2.0](https://github.com/bayne/dothttp/blob/master/LICENSE)
 
-<!-- cargo-sync-readme end -->
