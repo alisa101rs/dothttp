@@ -4,6 +4,7 @@
 
 [![codecov](https://codecov.io/gh/alisa101rs/dothttp/graph/badge.svg?token=9GWCS5H23D)](https://codecov.io/gh/alisa101rs/dothttp)
 [![Crates.io](https://img.shields.io/crates/v/dothttp.svg)](https://crates.io/crates/dothttp)
+[![build](https://github.com/alisa101rs/dothttp/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/alisa101rs/dothttp/actions/workflows/test.yml)
 
 dothttp is a text-based scriptable HTTP client. 
 It is a simple language that resembles the actual HTTP protocol but with just a smidgen of magic to make it more practical for someone who builds and tests APIs.
