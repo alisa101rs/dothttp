@@ -5,18 +5,19 @@
 [![codecov](https://codecov.io/gh/alisa101rs/dothttp/graph/badge.svg?token=9GWCS5H23D)](https://codecov.io/gh/alisa101rs/dothttp)
 [![Crates.io](https://img.shields.io/crates/v/dothttp.svg)](https://crates.io/crates/dothttp)
 [![build](https://github.com/alisa101rs/dothttp/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/alisa101rs/dothttp/actions/workflows/test.yml)
+[![nix](https://github.com/alisa101rs/dothttp/actions/workflows/nix.yml/badge.svg?branch=main)](https://github.com/alisa101rs/dothttp/actions/workflows/nix.yml)
 
-dothttp is a text-based scriptable HTTP client. 
+`dothttp` is a text-based scriptable HTTP client. 
 It is a simple language that resembles the actual HTTP protocol but with just a smidgen of magic to make it more practical for someone who builds and tests APIs.
 
-dothttp aims to provide full compatability with IntelliJ [Http Client](https://www.jetbrains.com/help/idea/http-client-in-product-code-editor.html).
+The difference from [dot-http](https://github.com/bayne/dot-http) is that `dothttp` aims to provide full compatability with IntelliJ [Http Client](https://www.jetbrains.com/help/idea/http-client-in-product-code-editor.html).
 
 Current list of feature support:
 - [x] Environment Files
 - [x] Variables
 - [x] Special variables: `$random`, `$timestamp` and `$isoTimestamp`
 - [x] Response handlers
-- [x] Response tests
+- [x] Response unit tests
 - [ ] Posting request bodies from files
 - [ ] Pre-request scripts
 - [ ] Cookies
@@ -48,6 +49,13 @@ You will need to use the stable release for this to work; if in doubt run
 
 ```bash,no_run
 rustup run stable cargo install dothttp
+```
+
+### Nix
+
+You can also use `nix` (with flakes) to run and use `dothttp`:
+```bash,no_run
+$ nix run github:alisa101rs/dothttp
 ```
 
 ## Usage
