@@ -45,7 +45,7 @@ jobs:
       - name: Build
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: /usr/bin/aarch64-linux-gnu-gcc
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --release --bin dothttp --locked --target ${{ matrix.target }}
 
       - name: Pack artifacts [Linux & macOS]
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
