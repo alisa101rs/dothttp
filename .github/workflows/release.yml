@@ -27,7 +27,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Add aarch64 target
         if: contains(fromJson('["aarch64-unknown-linux-gnu", "aarch64-apple-darwin"]'), matrix.target)
