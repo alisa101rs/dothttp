@@ -18,6 +18,8 @@ pub enum FormatItem {
     FirstLine,
     Headers,
     Body,
+    Tests,
+    Name,
     Chars(String),
 }
 
@@ -33,6 +35,8 @@ pub fn parse_format(format: &str) -> Result<Vec<FormatItem>> {
                 'R' => Some(FormatItem::FirstLine),
                 'H' => Some(FormatItem::Headers),
                 'B' => Some(FormatItem::Body),
+                'T' => Some(FormatItem::Tests),
+                'N' => Some(FormatItem::Name),
                 _ => return Err(anyhow!("Invalid formatting character '{}'", ch)),
             };
             if let Some(a) = action {
@@ -66,10 +70,8 @@ fn prettify_response_body(body: &str) -> String {
 }
 
 pub trait Output {
-    fn section(&mut self, name: &str) -> Result<()>;
-    fn response(&mut self, response: &Response) -> Result<()>;
-    fn request(&mut self, request: &Request) -> Result<()>;
-    fn tests(&mut self, report: &TestsReport) -> Result<()>;
+    fn response(&mut self, response: &Response, tests: &TestsReport) -> Result<()>;
+    fn request(&mut self, request: &Request, request_name: &str) -> Result<()>;
 }
 
 impl fmt::Display for Method {

@@ -11,7 +11,7 @@ use crate::{
     http::{reqwest::ReqwestHttpClient, HttpClient, Request},
     output::Output,
     parser::{parse, Header, RequestScript},
-    script_engine::{create_script_engine, ScriptEngine},
+    script_engine::{create_script_engine, report::TestsReport, ScriptEngine},
 };
 
 mod http;
@@ -96,40 +96,41 @@ impl<'a> Runtime<'a> {
 
             for (index, request_script) in request_scripts {
                 let request_name = Self::section_name(&script_file, request_script, index);
-                output.section(&request_name)?;
-
                 let request = process(engine, &request_script.request)
                     .with_context(|| format!("Failed processing request {request_name}"))?;
                 output
-                    .request(&request)
+                    .request(&request, &request_name)
                     .with_context(|| format!("Failed outputting request {request_name}"))?;
 
                 let response = client
                     .execute(&request)
                     .with_context(|| format!("Error executing request {request_name}"))?;
-                output.response(&response).with_context(|| {
+
+                let report =
+                    if let Some(parser::Handler { script, selection }) = &request_script.handler {
+                        engine
+                            .handle(
+                                &script_engine::Script {
+                                    selection: selection.clone(),
+                                    src: script.as_str(),
+                                },
+                                &response,
+                            )
+                            .with_context(|| {
+                                format!("Error handling response for request {request_name}",)
+                            })?;
+
+                        let test_report = engine.report().context("failed to get test report")?;
+                        errors.extend(test_report.failed().map(|(k, _)| k.clone()));
+
+                        test_report
+                    } else {
+                        TestsReport::default()
+                    };
+
+                output.response(&response, &report).with_context(|| {
                     format!("Error outputting response for request {request_name}",)
                 })?;
-
-                if let Some(parser::Handler { script, selection }) = &request_script.handler {
-                    engine
-                        .handle(
-                            &script_engine::Script {
-                                selection: selection.clone(),
-                                src: script.as_str(),
-                            },
-                            &response,
-                        )
-                        .with_context(|| {
-                            format!("Error handling response for request {request_name}",)
-                        })?;
-
-                    let test_report = engine.report().context("failed to get test report")?;
-                    errors.extend(test_report.failed().map(|(k, _)| k.clone()));
-                    output
-                        .tests(&test_report)
-                        .context("Failed outputting tests report")?;
-                }
 
                 engine.reset().unwrap();
             }

@@ -54,7 +54,7 @@ GET http://localhost:{port}/multi_get_third\
         port = server.port(),
     ));
     let writer = &mut DebugWriter(String::new());
-    let request_format = "%R\n";
+    let request_format = "%N\n%R\n";
     let response_format = "%R\n%H\n%B\n";
     let mut outputter = FormattedOutput::new(
         writer,

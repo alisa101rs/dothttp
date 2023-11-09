@@ -53,14 +53,12 @@ fn simple_get() {
         *buf,
         format!(
             "\
-[{filename} / #1]
 GET http://localhost:{}/simple_get/30
 HTTP/1.1 200 OK
 date: \n\
 content-length: 0\
 \n\n\n",
-            server.port(),
-            filename = script_file.file_name().unwrap().to_str().unwrap(),
+            server.port()
         )
     );
 }
@@ -117,7 +115,6 @@ POST http://localhost:{port}/simple_post
         *buf,
         format!(
             "\
-[{filename} / #1]
 POST http://localhost:{port}/simple_post
 HTTP/1.1 200 OK
 date: \n\
@@ -128,7 +125,6 @@ content-length: 15\
 }}\n\
             ",
             port = server.port(),
-            filename = script_file.file_name().unwrap().to_str().unwrap(),
         )
     );
 }
