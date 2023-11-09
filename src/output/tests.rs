@@ -1,6 +1,7 @@
 use crate::{
     http::{Method, Request, Response, Version},
     output::{parse_format, prettify_response_body, print::FormattedOutput, FormatItem, Output},
+    script_engine::report::TestsReport,
 };
 
 #[test]
@@ -69,19 +70,21 @@ fn test_format_request() {
     let mut buffer = Vec::new();
     let mut empty_output = FormattedOutput::new(&mut buffer, empty_format.clone(), empty_format);
     empty_output
-        .request(&request)
+        .request(&request, "")
         .expect("print works correctly");
     empty_output
-        .response(&response)
+        .response(&response, &TestsReport::default())
         .expect("print works correctly");
     assert_eq!(String::from_utf8(buffer).expect("is a string"), "");
 
     let full_format = parse_format("%R\n%H\n%B\n").expect("valid format");
     let mut buffer = Vec::new();
     let mut outputter = FormattedOutput::new(&mut buffer, full_format.clone(), full_format);
-    outputter.request(&request).expect("print works correctly");
     outputter
-        .response(&response)
+        .request(&request, "")
+        .expect("print works correctly");
+    outputter
+        .response(&response, &TestsReport::default())
         .expect("print works correctly");
     assert_eq!(
         String::from_utf8(buffer).expect("is a string"),
@@ -104,9 +107,11 @@ Content-Type: text/json
     let mut buffer = Vec::new();
     let mut outputter =
         FormattedOutput::new(&mut buffer, first_line_headers.clone(), first_line_headers);
-    outputter.request(&request).expect("print works correctly");
     outputter
-        .response(&response)
+        .request(&request, "")
+        .expect("print works correctly");
+    outputter
+        .response(&response, &TestsReport::default())
         .expect("print works correctly");
     assert_eq!(
         String::from_utf8(buffer).expect("is a string"),
@@ -122,9 +127,11 @@ Content-Type: text/json
     let only_first_line = parse_format("%R\n").expect("valid format");
     let mut buffer = Vec::new();
     let mut outputter = FormattedOutput::new(&mut buffer, only_first_line.clone(), only_first_line);
-    outputter.request(&request).expect("print works correctly");
     outputter
-        .response(&response)
+        .request(&request, "")
+        .expect("print works correctly");
+    outputter
+        .response(&response, &TestsReport::default())
         .expect("print works correctly");
     assert_eq!(
         String::from_utf8(buffer).expect("is a string"),

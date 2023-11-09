@@ -41,13 +41,27 @@ fn format_body(body: &Option<String>) -> String {
     }
 }
 
-impl<'a, W: Write> Output for FormattedOutput<'a, W> {
-    fn section(&mut self, name: &str) -> Result<()> {
-        writeln!(self.writer, "[{name}]")?;
-        Ok(())
+fn format_tests(report: &TestsReport) -> String {
+    use std::fmt::Write;
+
+    let mut output = String::new();
+    if report.is_empty() {
+        return output;
     }
 
-    fn response(&mut self, response: &http::Response) -> Result<()> {
+    for (test, result) in report.all() {
+        write!(&mut output, "Test `{test}`: ").unwrap();
+        match result {
+            TestResult::Error { error } => writeln!(&mut output, "FAILED with {error}").unwrap(),
+            TestResult::Success => writeln!(&mut output, "OK").unwrap(),
+        }
+    }
+
+    output
+}
+
+impl<'a, W: Write> Output for FormattedOutput<'a, W> {
+    fn response(&mut self, response: &http::Response, tests: &TestsReport) -> Result<()> {
         if self.response_format.is_empty() {
             return Ok(());
         }
@@ -66,6 +80,8 @@ impl<'a, W: Write> Output for FormattedOutput<'a, W> {
                 FormatItem::Headers => format_headers(headers),
                 FormatItem::Body => format_body(body),
                 FormatItem::Chars(s) => s.clone(),
+                FormatItem::Tests => format_tests(tests),
+                FormatItem::Name => continue,
             };
 
             if to_write.is_empty() {
@@ -77,7 +93,7 @@ impl<'a, W: Write> Output for FormattedOutput<'a, W> {
         Ok(())
     }
 
-    fn request(&mut self, request: &http::Request) -> Result<()> {
+    fn request(&mut self, request: &http::Request, request_name: &str) -> Result<()> {
         if self.request_format.is_empty() {
             return Ok(());
         }
@@ -95,6 +111,8 @@ impl<'a, W: Write> Output for FormattedOutput<'a, W> {
                 FormatItem::Headers => format_headers(headers),
                 FormatItem::Body => format_body(body),
                 FormatItem::Chars(s) => s.clone(),
+                FormatItem::Tests => continue,
+                FormatItem::Name => format!("[{request_name}]"),
             };
 
             if to_write.is_empty() {
@@ -102,21 +120,6 @@ impl<'a, W: Write> Output for FormattedOutput<'a, W> {
             }
 
             write!(self.writer, "{to_write}")?;
-        }
-        Ok(())
-    }
-
-    fn tests(&mut self, report: &TestsReport) -> Result<()> {
-        if report.is_empty() {
-            return Ok(());
-        }
-
-        for (test, result) in report.all() {
-            write!(self.writer, "Test `{test}`: ")?;
-            match result {
-                TestResult::Error { error } => writeln!(self.writer, "FAILED with {error}")?,
-                TestResult::Success => writeln!(self.writer, "OK")?,
-            }
         }
         Ok(())
     }
