@@ -82,8 +82,8 @@ fn main() -> Result<()> {
     let mut stdout = stdout();
     let mut output = FormattedOutput::new(
         stdout.borrow_mut(),
-        parse_format(&request_format)?,
-        parse_format(&response_format)?,
+        parse_format(&preprocess_format_strings(request_format))?,
+        parse_format(&preprocess_format_strings(response_format))?,
     );
 
     let mut runtime = Runtime::new(
@@ -96,4 +96,8 @@ fn main() -> Result<()> {
     .unwrap();
 
     runtime.execute(files.into_iter(), request)
+}
+
+fn preprocess_format_strings(format: String) -> String {
+    format.replace(r"\n", "\n").replace(r"\t", "\t")
 }
