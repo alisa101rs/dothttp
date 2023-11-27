@@ -27,7 +27,7 @@ response_handler = ${ !request_separator ~ handler_script }
 
 request = _{ request_line ~ CRLF ~ (header_field ~ (CRLF | EOI))* }
 
-request_line   = _{ method ~ SP ~ request_target ~ (SP ~ http_version)? }
+request_line   = _{ (method ~ SP)? ~ request_target ~ (SP ~ http_version)? }
 method         =  { ASCII_ALPHA_UPPER{3, } }
 request_target =  { url_string }
 http_version   = _{ "HTTP/1.1" | "HTTP/1.0" }
