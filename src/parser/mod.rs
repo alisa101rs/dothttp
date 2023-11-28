@@ -195,7 +195,7 @@ impl FromPair for Request {
                 Request {
                     selection,
                     method: pairs
-                        .clone()
+                        .clone() // clone in order to be able to iterate over it again, if no method is found
                         .find_map(|pair| match pair.as_rule() {
                             Rule::method => Some(Method::from_pair(filename.clone(), pair)),
                             _ => None,
