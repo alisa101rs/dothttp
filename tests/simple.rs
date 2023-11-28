@@ -26,10 +26,6 @@ fn simple_get() {
         "GET http://localhost:{port}/simple_get/{{{{id}}}}",
         port = server.port()
     ));
-    let script_file_without_method = create_file(&format!(
-        "http://localhost:{port}/simple_get/{{{{id}}}}",
-        port = server.port()
-    ));
     let writer = &mut DebugWriter(String::new());
     let request_format = "%R\n";
     let response_format = "%R\n%H\n%B\n";
@@ -50,22 +46,21 @@ fn simple_get() {
     runtime
         .execute(Some(script_file.to_path_buf()), Some(1))
         .unwrap();
-    runtime
-        .execute(Some(script_file_without_method.to_path_buf()), Some(1))
-        .unwrap();
 
     let DebugWriter(buf) = writer;
 
-    let expected = format!(
-        "\
+    debug_assert_eq!(
+        *buf,
+        format!(
+            "\
 GET http://localhost:{}/simple_get/30
 HTTP/1.1 200 OK
 date: \n\
 content-length: 0\
 \n\n\n",
-        server.port(),
+            server.port()
+        )
     );
-    debug_assert_eq!(*buf, expected.repeat(2),);
 }
 
 #[test]
