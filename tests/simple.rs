@@ -23,7 +23,7 @@ fn simple_get() {
     let snapshot_file = create_file("{}");
     let env_file = create_file(r#"{"dev": {"id": 30}}"#);
     let script_file = create_file(&format!(
-        "GET http://localhost:{port}/simple_get/{{{{id}}}}",
+        "http://localhost:{port}/simple_get/{{{{id}}}}",
         port = server.port()
     ));
     let writer = &mut DebugWriter(String::new());

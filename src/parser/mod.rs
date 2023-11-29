@@ -195,17 +195,18 @@ impl FromPair for Request {
                 Request {
                     selection,
                     method: pairs
+                        .clone() // clone in order to be able to iterate over it again, if no method is found
                         .find_map(|pair| match pair.as_rule() {
                             Rule::method => Some(Method::from_pair(filename.clone(), pair)),
                             _ => None,
                         })
-                        .unwrap(),
+                        .unwrap_or(Method::Get(Selection::none())),
                     target: pairs
                         .find_map(|pair| match pair.as_rule() {
                             Rule::request_target => Some(Value::from_pair(filename.clone(), pair)),
                             _ => None,
                         })
-                        .unwrap(),
+                        .unwrap_or_else(|| panic!("Couldn't find target in request script")),
                     headers: pairs
                         .clone()
                         .filter_map(|pair| match pair.as_rule() {
