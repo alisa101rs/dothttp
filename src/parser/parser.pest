@@ -2,7 +2,10 @@ CRLF    = _{ "\r\n" | "\n" | "\r" }
 COMMENT = _{ !request_separator ~ "#" ~ (!CRLF ~ ANY)* ~ CRLF }
 SP      = _{ " " }
 
-url_string = _{ (inline_script | (!(SP{1, } ~ http_version) ~ !CRLF ~ ANY))* }
+url_string = _{ (inline_script | (CRLF ~ SP{1, } ~ url_multiline_item) | url_singleline_item )* }
+url_singleline_item = _{ !(SP{1, } ~ http_version) ~ !CRLF ~ ANY }
+url_multiline_item = _{ !http_version ~ !CRLF ~ ANY }
+
 token      = _{ (tchar | inline_script)* }
 tchar      = _{ "!" | "#" | "$" | "%" | "&" | "'" | "*" | "+" | "-" | "." | "^" | "_" | "`" | "|" | "~" | ASCII_ALPHANUMERIC }
 

@@ -283,3 +283,30 @@ fn alot_of_whitespaces() {
 
     assert!(file.is_ok());
 }
+
+#[test]
+fn multiline_request_line() {
+    let test = r#"GET https://httpbin.org/get
+         ?request=2
+         HTTP/1.0
+     "#;
+
+    let file = ScriptParser::parse(Rule::request_line, test);
+    if let Err(e) = &file {
+        println!("{:?}", e);
+    }
+
+    assert!(file.is_ok());
+
+    let mut pairs = file.unwrap().into_iter();
+
+    let method = pairs.next().unwrap().as_str();
+    assert_eq!(method, "GET");
+    let uri = pairs
+        .next()
+        .unwrap()
+        .as_str()
+        .replace(|c: char| c.is_whitespace(), "");
+    assert_eq!(&uri, "https://httpbin.org/get?request=2");
+    assert!(pairs.next().is_none())
+}

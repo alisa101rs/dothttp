@@ -202,7 +202,8 @@ fn process(engine: &mut dyn ScriptEngine, request: &parser::Request) -> Result<R
             .process(target.into())
             .with_context(|| format!("Failed processing: {}", target))?
             .state
-            .value,
+            .value
+            .replace(|c: char| c.is_whitespace(), ""),
         headers,
         body: match body {
             None => None,

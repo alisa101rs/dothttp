@@ -47,7 +47,8 @@ POST http://localhost:{port}/multi_post_first
 
 ###
 
-GET http://localhost:{port}/multi_get_second
+GET http://localhost:{port}
+  /multi_get_second
 ###
 GET http://localhost:{port}/multi_get_third\
         ",
