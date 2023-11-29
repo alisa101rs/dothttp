@@ -271,3 +271,15 @@ header: some-value";
     assert!(&request.headers[0].field_name == "header");
     assert!(&request.body.is_none());
 }
+
+#[test]
+fn alot_of_whitespaces() {
+    let test = "      POST       http://example.com     HTTP/1.1     \n";
+
+    let file = ScriptParser::parse(Rule::file, test);
+    if let Err(e) = &file {
+        println!("{:?}", e);
+    }
+
+    assert!(file.is_ok());
+}
