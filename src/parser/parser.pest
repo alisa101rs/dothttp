@@ -2,7 +2,7 @@ CRLF    = _{ "\r\n" | "\n" | "\r" }
 COMMENT = _{ !request_separator ~ "#" ~ (!CRLF ~ ANY)* ~ CRLF }
 SP      = _{ " " }
 
-url_string = _{ (inline_script | (!(" " ~ http_version) ~ !CRLF ~ ANY))* }
+url_string = _{ (inline_script | (!(SP{1, } ~ http_version) ~ !CRLF ~ ANY))* }
 token      = _{ (tchar | inline_script)* }
 tchar      = _{ "!" | "#" | "$" | "%" | "&" | "'" | "*" | "+" | "-" | "." | "^" | "_" | "`" | "|" | "~" | ASCII_ALPHANUMERIC }
 
@@ -27,10 +27,11 @@ response_handler = ${ !request_separator ~ handler_script }
 
 request = _{ request_line ~ CRLF ~ (header_field ~ (CRLF | EOI))* }
 
-request_line   = _{ (method ~ SP)? ~ request_target ~ (SP ~ http_version)? }
-method         =  { ASCII_ALPHA_UPPER{3, } }
-request_target =  { url_string }
-http_version   = _{ "HTTP/1.1" | "HTTP/1.0" }
+request_line       = _{ request_line_start ~ request_target ~ (SP{1, } ~ http_version)? ~ SP* }
+request_line_start = _{ (SP* ~ method ~ SP{1, }) | SP* }
+method             =  { ASCII_ALPHA_UPPER{3, } }
+request_target     =  { url_string }
+http_version       = _{ "HTTP/1.1" | "HTTP/1.0" }
 
 header_field = ${ field_name ~ ":" ~ SP* ~ field_value }
 field_name   =  { token }
