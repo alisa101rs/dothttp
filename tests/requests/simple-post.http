@@ -1,0 +1,17 @@
+### test_simple_post
+
+POST http://{{host}}/post
+my-header: {{variable}}
+Content-Type: application/json
+
+{
+  "value": "{{another_variable}}"
+}
+
+> {%
+    client.test("valid request", () => {
+        client.assert(response.body["headers"]["my-header"] == "42");
+        client.assert(response.body["json"]["value"] == "9000");
+    });
+%}
+

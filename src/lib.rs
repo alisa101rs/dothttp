@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
-use serde_json::Value;
+pub use environment::{EnvironmentFileProvider, EnvironmentProvider, StaticEnvironmentProvider};
 
 use crate::{
     http::{reqwest::ReqwestHttpClient, HttpClient, Request},
@@ -14,6 +14,7 @@ use crate::{
     script_engine::{create_script_engine, report::TestsReport, ScriptEngine},
 };
 
+mod environment;
 mod http;
 pub mod output;
 pub(crate) mod parser;
@@ -37,45 +38,34 @@ impl ClientConfig {
     }
 }
 
-pub struct Runtime<'a> {
+pub struct Runtime<'a, E> {
     engine: Box<dyn ScriptEngine>,
-    snapshot_file: PathBuf,
+    environment: &'a mut E,
     output: &'a mut dyn Output,
-    client: Box<dyn HttpClient>,
+    client: Box<ReqwestHttpClient>,
 }
 
-impl<'a> Runtime<'a> {
+impl<'a, E> Runtime<'a, E>
+where
+    E: EnvironmentProvider,
+{
     pub fn new(
-        env: &str,
-        snapshot_file: &Path,
-        env_file: &Path,
+        environment: &'a mut E,
         output: &'a mut dyn Output,
         config: ClientConfig,
-    ) -> Result<Runtime<'a>> {
-        let Value::Object(mut environment) =
-            read_json_content(env_file).context("environment deserialization")?
-        else {
-            return Err(anyhow!("Expected environment file to be a map"));
-        };
-
-        let environment = environment
-            .remove(env)
-            .unwrap_or_else(|| serde_json::json!({}));
-
-        let snapshot = read_json_content(snapshot_file).context("snapshot deserialization")?;
-
-        let engine = create_script_engine(environment, snapshot)?;
+    ) -> Result<Runtime<'a, E>> {
+        let engine = create_script_engine(environment)?;
         let client = Box::new(ReqwestHttpClient::create(config));
 
         Ok(Runtime {
             output,
-            snapshot_file: PathBuf::from(snapshot_file),
+            environment,
             engine,
             client,
         })
     }
 
-    pub fn execute(
+    pub async fn execute(
         &mut self,
         files: impl IntoIterator<Item = PathBuf>,
         request: Option<usize>,
@@ -87,10 +77,11 @@ impl<'a> Runtime<'a> {
         let client = &self.client;
 
         for script_file in files {
-            let file = fs::read_to_string(&script_file)
-                .with_context(|| format!("Failed opening script file: {:?}", script_file))?;
+            let file = fs::read_to_string(&script_file).with_context(|| {
+                format!("Failed opening script file: `{:?}`", script_file.display())
+            })?;
             let file = &mut parse(script_file.to_path_buf(), file.as_str())
-                .with_context(|| format!("Failed parsing file: {:?}", script_file))?;
+                .with_context(|| format!("Failed parsing file: `{:?}`", script_file.display()))?;
 
             let request_scripts = file.request_scripts(request);
 
@@ -104,6 +95,7 @@ impl<'a> Runtime<'a> {
 
                 let response = client
                     .execute(&request)
+                    .await
                     .with_context(|| format!("Error executing request {request_name}"))?;
 
                 let report =
@@ -140,11 +132,9 @@ impl<'a> Runtime<'a> {
             .snapshot()
             .with_context(|| "Error creating snapshot")?;
 
-        fs::write(
-            self.snapshot_file.as_path(),
-            serde_json::to_vec(&snapshot).unwrap(),
-        )
-        .with_context(|| "Error writing snapshot")?;
+        self.environment
+            .save(&snapshot)
+            .with_context(|| "Error writing snapshot")?;
 
         if !errors.is_empty() {
             let failed_tests = errors.join(", ");
@@ -154,10 +144,7 @@ impl<'a> Runtime<'a> {
     }
 
     fn section_name(file: &Path, request: &RequestScript, index: usize) -> String {
-        let filename = file
-            .file_name()
-            .and_then(|it| it.to_str())
-            .unwrap_or_else(|| "");
+        let filename = file.file_name().and_then(|it| it.to_str()).unwrap_or("");
         if let Some(name) = &request.name {
             format!("{filename} / {name}")
         } else {
@@ -252,13 +239,5 @@ impl From<&parser::Value> for script_engine::Value<script_engine::Unprocessed> {
         script_engine::Value {
             state: state.into(),
         }
-    }
-}
-
-fn read_json_content(path: &Path) -> Result<Value> {
-    match fs::read(path) {
-        Ok(data) => Ok(serde_json::from_slice(&data).context("json deserialization")?),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
-        Err(e) => Err(anyhow!("IO Error: {e}")),
     }
 }

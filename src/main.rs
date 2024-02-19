@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use dothttp::{
     output::{parse_format, print::FormattedOutput},
-    ClientConfig, Runtime,
+    ClientConfig, EnvironmentFileProvider, Runtime,
 };
 
 #[derive(Parser, Debug)]
@@ -60,7 +60,8 @@ struct Args {
     accept_invalid_cert: bool,
 }
 
-fn main() -> Result<()> {
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<()> {
     let Args {
         environment_file,
         snapshot,
@@ -85,17 +86,11 @@ fn main() -> Result<()> {
         parse_format(&preprocess_format_strings(request_format))?,
         parse_format(&preprocess_format_strings(response_format))?,
     );
+    let mut environment = EnvironmentFileProvider::open(&env, &env_file, &snapshot_file)?;
 
-    let mut runtime = Runtime::new(
-        &env,
-        &snapshot_file,
-        &env_file,
-        output.borrow_mut(),
-        client_config,
-    )
-    .unwrap();
+    let mut runtime = Runtime::new(&mut environment, output.borrow_mut(), client_config).unwrap();
 
-    runtime.execute(files.into_iter(), request)
+    runtime.execute(files.into_iter(), request).await
 }
 
 fn preprocess_format_strings(format: String) -> String {

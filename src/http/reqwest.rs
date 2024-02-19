@@ -1,9 +1,12 @@
-use std::convert::{TryFrom, TryInto};
-
-use reqwest::{
-    blocking::{Client, RequestBuilder},
-    header::HeaderMap,
+use std::{
+    borrow::Cow,
+    convert::{TryFrom, TryInto},
+    str::FromStr,
 };
+
+use anyhow::Context;
+use http::Uri;
+use reqwest::{header::HeaderMap, Client, RequestBuilder, Url};
 
 use crate::{
     http::{ClientConfig, HttpClient, Method, Request, Response, Version},
@@ -25,7 +28,7 @@ impl HttpClient for ReqwestHttpClient {
     where
         Self: Sized,
     {
-        let client = reqwest::blocking::Client::builder()
+        let client = Client::builder()
             .danger_accept_invalid_certs(config.ssl_check)
             .build()
             .unwrap();
@@ -33,22 +36,45 @@ impl HttpClient for ReqwestHttpClient {
         ReqwestHttpClient { client }
     }
 
-    fn execute(&self, request: &Request) -> Result<Response> {
+    async fn execute(&self, request: &Request) -> Result<Response> {
         let Request {
             method,
             target,
             headers,
             body,
         } = request;
-        let mut request_builder = self.client.request(method.into(), target);
+        let mut request_builder = self
+            .client
+            .request(method.into(), get_request_target(target)?);
         request_builder = set_headers(headers, request_builder);
         if let Some(body) = body {
             request_builder = set_body(body, request_builder);
         }
-        let response = request_builder.send()?;
+        let response = request_builder.send().await?;
 
-        response.try_into()
+        map_reqwest_response(response).await
     }
+}
+
+fn get_request_target(target: &str) -> Result<Url> {
+    let target = if target.starts_with("http://") || target.starts_with("https://") {
+        Cow::Borrowed(target)
+    } else {
+        Cow::Owned(format!("http://{target}"))
+    };
+
+    let parsed = Uri::from_str(target.as_ref()).context("Invalid URI")?;
+
+    let schema = parsed.scheme().map(|it| it.as_str()).unwrap_or("http");
+    let authority = parsed
+        .authority()
+        .map(|it| it.as_str())
+        .unwrap_or("0.0.0.0");
+    let path = parsed.path_and_query().map(|it| it.as_str()).unwrap_or("/");
+
+    let formatted = format!("{schema}://{authority}{path}");
+
+    Ok(Url::from_str(&formatted).expect("to be correct"))
 }
 
 fn set_headers(
@@ -75,22 +101,19 @@ impl From<&Method> for reqwest::Method {
 }
 
 struct Headers(Vec<(String, String)>);
-impl TryFrom<reqwest::blocking::Response> for Response {
-    type Error = anyhow::Error;
 
-    fn try_from(response: reqwest::blocking::Response) -> Result<Self> {
-        let Headers(headers) = response.headers().try_into()?;
-        Ok(Response {
-            version: response.version().into(),
-            status_code: response.status().as_u16(),
-            status: response.status().to_string(),
-            headers,
-            body: match response.text()? {
-                body if !body.is_empty() => Some(body),
-                _ => None,
-            },
-        })
-    }
+async fn map_reqwest_response(response: reqwest::Response) -> Result<Response> {
+    let Headers(headers) = response.headers().try_into()?;
+    Ok(Response {
+        version: response.version().into(),
+        status_code: response.status().as_u16(),
+        status: response.status().to_string(),
+        headers,
+        body: match response.text().await? {
+            body if !body.is_empty() => Some(body),
+            _ => None,
+        },
+    })
 }
 
 impl TryFrom<&HeaderMap> for Headers {
@@ -120,6 +143,6 @@ impl From<reqwest::Version> for Version {
 
 fn set_body(body: &str, mut request_builder: RequestBuilder) -> RequestBuilder {
     let body = body.trim();
-    request_builder = request_builder.body::<reqwest::blocking::Body>(body.to_string().into());
+    request_builder = request_builder.body::<reqwest::Body>(body.to_string().into());
     request_builder
 }

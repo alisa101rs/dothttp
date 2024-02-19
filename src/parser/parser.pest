@@ -13,10 +13,10 @@ plain_request_separator     = _{ "###" }
 request_separator_with_name =  { plain_request_separator ~ (!CRLF ~ ANY)* }
 request_separator           = _{ request_separator_with_name | plain_request_separator }
 
-handler_script                  =  { handler_script_start ~ handler_script_string ~ handler_script_end }
 handler_script_string           =  { handler_script_string_character* }
 handler_script_string_character = _{ !handler_script_end ~ !"{%" ~ ANY }
 handler_script_start            = _{ "> {%" ~ (SP | CRLF)* }
+pre_handler_script_start            = _{ "< {%" ~ (SP | CRLF)* }
 handler_script_end              = _{ (SP | CRLF)* ~ "%}" }
 
 inline_script                  =  { "{{" ~ SP* ~ inline_script_string ~ inline_script_end }
@@ -24,9 +24,12 @@ inline_script_string           =  { inline_script_string_character* }
 inline_script_string_character = _{ !inline_script_end ~ !"{{" ~ ANY }
 inline_script_end              = _{ SP* ~ "}}" }
 
-request_script   =  { request_separator? ~ CRLF* ~ request ~ CRLF* ~ request_body? ~ response_handler? }
+request_script   =  { request_separator? ~ CRLF* ~ pre_request_handler? ~ CRLF* ~ request ~ CRLF* ~ request_body? ~ response_handler? }
 request_body     =  { (!request_separator ~ !handler_script_start ~ !EOI ~ (inline_script | ANY))+ }
-response_handler = ${ !request_separator ~ handler_script }
+
+pre_request_handler = ${ !request_separator ~ pre_handler_script_start ~ handler_script_string ~ handler_script_end }
+response_handler = ${ !request_separator ~ handler_script_start ~ handler_script_string ~ handler_script_end }
+
 
 request = _{ request_line ~ CRLF ~ (header_field ~ (CRLF | EOI))* }
 

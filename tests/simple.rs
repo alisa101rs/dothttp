@@ -1,130 +1,40 @@
-use std::borrow::BorrowMut;
+use dothttp::{ClientConfig, Runtime, StaticEnvironmentProvider};
+use serde_json::json;
 
-use dothttp::{
-    output::{parse_format, print::FormattedOutput},
-    ClientConfig, Runtime,
-};
-use httpmock::MockServer;
-
-use crate::common::{create_file, DebugWriter};
+use crate::common::{formatter, MockHttpBin};
 
 mod common;
+#[tokio::test]
+async fn test_simple_get() {
+    let mut server = MockHttpBin::start().await;
+    let mut output = formatter();
+    let mut environment =
+        StaticEnvironmentProvider::new(json!({ "host": "0.0.0.0:38888", "variable": "42" }));
+    let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
 
-#[test]
-fn simple_get() {
-    let server = MockServer::start();
-    server.mock(|when, then| {
-        when.method(httpmock::Method::GET).path("/simple_get/30");
-        then.status(200).header("date", "");
-    });
+    let result = runtime
+        .execute(Some("tests/requests/simple-get.http".into()), Some(1))
+        .await;
 
-    let env = "dev";
+    assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);
 
-    let snapshot_file = create_file("{}");
-    let env_file = create_file(r#"{"dev": {"id": 30}}"#);
-    let script_file = create_file(&format!(
-        "http://localhost:{port}/simple_get/{{{{id}}}}",
-        port = server.port()
-    ));
-    let writer = &mut DebugWriter(String::new());
-    let request_format = "%R\n";
-    let response_format = "%R\n%H\n%B\n";
-    let mut outputter = FormattedOutput::new(
-        writer,
-        parse_format(request_format).unwrap(),
-        parse_format(response_format).unwrap(),
-    );
-
-    let mut runtime = Runtime::new(
-        env,
-        &snapshot_file,
-        &env_file,
-        outputter.borrow_mut(),
-        ClientConfig::default(),
-    )
-    .unwrap();
-    runtime
-        .execute(Some(script_file.to_path_buf()), Some(1))
-        .unwrap();
-
-    let DebugWriter(buf) = writer;
-
-    debug_assert_eq!(
-        *buf,
-        format!(
-            "\
-GET http://localhost:{}/simple_get/30
-HTTP/1.1 200 OK
-date: \n\
-content-length: 0\
-\n\n\n",
-            server.port()
-        )
-    );
+    assert_eq!(server.requests().await.len(), 1);
 }
 
-#[test]
-fn simple_post() {
-    let server = MockServer::start();
-    server.mock(|when, then| {
-        when.method(httpmock::Method::POST).path("/simple_post");
-        then.status(200)
-            .header("date", "")
-            .body(r#"{"value": true}"#);
-    });
-
-    let env = "dev";
-
-    let snapshot_file = create_file("{}");
-    let env_file = create_file("{}");
-    let script_file = create_file(&format!(
-        "\
-POST http://localhost:{port}/simple_post
-
-{{
-    \"test\": \"body\"
-}}\
-        ",
-        port = server.port(),
-    ));
-    let writer = &mut DebugWriter(String::new());
-    let request_format = "%R\n";
-    let response_format = "%R\n%H\n%B\n";
-    let mut outputter = FormattedOutput::new(
-        writer,
-        parse_format(request_format).unwrap(),
-        parse_format(response_format).unwrap(),
+#[tokio::test]
+async fn test_simple_post() {
+    let mut server = MockHttpBin::start().await;
+    let mut output = formatter();
+    let mut environment = StaticEnvironmentProvider::new(
+        json!({ "host": "0.0.0.0:38888", "variable": "42", "another_variable": "9000" }),
     );
+    let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
 
-    let mut runtime = Runtime::new(
-        env,
-        &snapshot_file,
-        &env_file,
-        outputter.borrow_mut(),
-        ClientConfig::default(),
-    )
-    .unwrap();
+    let result = runtime
+        .execute(Some("tests/requests/simple-post.http".into()), Some(1))
+        .await;
 
-    runtime
-        .execute(Some(script_file.to_path_buf()), Some(1))
-        .unwrap();
+    assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);
 
-    let DebugWriter(buf) = writer;
-
-    debug_assert_eq!(
-        *buf,
-        format!(
-            "\
-POST http://localhost:{port}/simple_post
-HTTP/1.1 200 OK
-date: \n\
-content-length: 15\
-\n\n\
-{{
-  \"value\": true
-}}\n\
-            ",
-            port = server.port(),
-        )
-    );
+    assert_eq!(server.requests().await.len(), 1);
 }

@@ -1,7 +1,6 @@
-use crate::{parser, ClientConfig, Result};
+use std::future::Future;
 
-#[cfg(test)]
-mod tests;
+use crate::{parser, ClientConfig, Result};
 
 pub mod reqwest;
 
@@ -46,7 +45,7 @@ pub trait HttpClient {
     where
         Self: Sized;
 
-    fn execute(&self, request: &Request) -> Result<Response>;
+    fn execute(&self, request: &Request) -> impl Future<Output = Result<Response>>;
 }
 
 impl From<&parser::Method> for Method {

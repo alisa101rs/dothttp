@@ -3,7 +3,10 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
-use crate::{http, parser::Selection, script_engine::report::TestsReport, Result};
+use crate::{
+    environment::EnvironmentProvider, http, parser::Selection, script_engine::report::TestsReport,
+    Result,
+};
 
 pub mod boa;
 pub mod report;
@@ -39,11 +42,10 @@ pub struct InlineScript {
 }
 
 pub fn create_script_engine(
-    environment: serde_json::Value,
-    snapshot: serde_json::Value,
+    environment: &mut dyn EnvironmentProvider,
 ) -> Result<Box<dyn ScriptEngine>> {
     use crate::script_engine::boa::BoaScriptEngine;
-    Ok(Box::new(BoaScriptEngine::new(environment, snapshot)?))
+    Ok(Box::new(BoaScriptEngine::new(environment.snapshot())?))
 }
 
 pub struct Script<'a> {
