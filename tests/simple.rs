@@ -1,4 +1,4 @@
-use dothttp::{ClientConfig, Runtime, StaticEnvironmentProvider};
+use dothttp::{source::FileSourceProvider, ClientConfig, Runtime, StaticEnvironmentProvider};
 use serde_json::json;
 
 use crate::common::{formatter, MockHttpBin};
@@ -14,7 +14,7 @@ async fn test_simple_get() {
     let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
 
     let result = runtime
-        .execute(Some("tests/requests/simple-get.http".into()), Some(1))
+        .execute(FileSourceProvider::new("tests/requests/simple-get.http", Some(1)).unwrap())
         .await;
 
     assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);
@@ -32,7 +32,7 @@ async fn test_simple_post() {
     let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
 
     let result = runtime
-        .execute(Some("tests/requests/simple-post.http".into()), Some(1))
+        .execute(FileSourceProvider::new("tests/requests/simple-post.http", Some(1)).unwrap())
         .await;
 
     assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);

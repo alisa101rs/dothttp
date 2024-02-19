@@ -1,16 +1,15 @@
-use std::{
-    borrow::BorrowMut,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::borrow::BorrowMut;
 
 use anyhow::{anyhow, Context};
-pub use environment::{EnvironmentFileProvider, EnvironmentProvider, StaticEnvironmentProvider};
 
+pub use crate::{
+    environment::{EnvironmentFileProvider, EnvironmentProvider, StaticEnvironmentProvider},
+    source::SourceProvider,
+};
 use crate::{
     http::{reqwest::ReqwestHttpClient, HttpClient, Request},
     output::Output,
-    parser::{parse, Header, RequestScript},
+    parser::{Header, RequestScript},
     script_engine::{create_script_engine, report::TestsReport, ScriptEngine},
 };
 
@@ -19,6 +18,7 @@ mod http;
 pub mod output;
 pub(crate) mod parser;
 mod script_engine;
+pub mod source;
 
 pub type Result<T> = anyhow::Result<T>;
 
@@ -65,67 +65,52 @@ where
         })
     }
 
-    pub async fn execute(
-        &mut self,
-        files: impl IntoIterator<Item = PathBuf>,
-        request: Option<usize>,
-    ) -> Result<()> {
+    pub async fn execute(&mut self, mut source_provider: impl SourceProvider) -> Result<()> {
         let mut errors = vec![];
 
         let engine = &mut *self.engine;
         let output = self.output.borrow_mut();
         let client = &self.client;
 
-        for script_file in files {
-            let file = fs::read_to_string(&script_file).with_context(|| {
-                format!("Failed opening script file: `{:?}`", script_file.display())
+        for source in source_provider.requests() {
+            let request_name = Self::section_name(source.name, source.script, source.index);
+            let request = process(engine, &source.script.request)
+                .with_context(|| format!("Failed processing request {request_name}"))?;
+            output
+                .request(&request, &request_name)
+                .with_context(|| format!("Failed outputting request {request_name}"))?;
+            let response = client
+                .execute(&request)
+                .await
+                .with_context(|| format!("Error executing request {request_name}"))?;
+
+            let report = if let Some(parser::Handler { script, selection }) = &source.script.handler
+            {
+                engine
+                    .handle(
+                        &script_engine::Script {
+                            selection: selection.clone(),
+                            src: script.as_str(),
+                        },
+                        &response,
+                    )
+                    .with_context(|| {
+                        format!("Error handling response for request {request_name}",)
+                    })?;
+
+                let test_report = engine.report().context("failed to get test report")?;
+                errors.extend(test_report.failed().map(|(k, _)| k.clone()));
+
+                test_report
+            } else {
+                TestsReport::default()
+            };
+
+            output.response(&response, &report).with_context(|| {
+                format!("Error outputting response for request {request_name}",)
             })?;
-            let file = &mut parse(script_file.to_path_buf(), file.as_str())
-                .with_context(|| format!("Failed parsing file: `{:?}`", script_file.display()))?;
 
-            let request_scripts = file.request_scripts(request);
-
-            for (index, request_script) in request_scripts {
-                let request_name = Self::section_name(&script_file, request_script, index);
-                let request = process(engine, &request_script.request)
-                    .with_context(|| format!("Failed processing request {request_name}"))?;
-                output
-                    .request(&request, &request_name)
-                    .with_context(|| format!("Failed outputting request {request_name}"))?;
-
-                let response = client
-                    .execute(&request)
-                    .await
-                    .with_context(|| format!("Error executing request {request_name}"))?;
-
-                let report =
-                    if let Some(parser::Handler { script, selection }) = &request_script.handler {
-                        engine
-                            .handle(
-                                &script_engine::Script {
-                                    selection: selection.clone(),
-                                    src: script.as_str(),
-                                },
-                                &response,
-                            )
-                            .with_context(|| {
-                                format!("Error handling response for request {request_name}",)
-                            })?;
-
-                        let test_report = engine.report().context("failed to get test report")?;
-                        errors.extend(test_report.failed().map(|(k, _)| k.clone()));
-
-                        test_report
-                    } else {
-                        TestsReport::default()
-                    };
-
-                output.response(&response, &report).with_context(|| {
-                    format!("Error outputting response for request {request_name}",)
-                })?;
-
-                engine.reset().unwrap();
-            }
+            engine.reset().unwrap();
         }
 
         let snapshot = engine
@@ -143,12 +128,11 @@ where
         Ok(())
     }
 
-    fn section_name(file: &Path, request: &RequestScript, index: usize) -> String {
-        let filename = file.file_name().and_then(|it| it.to_str()).unwrap_or("");
+    fn section_name(request_module_name: &str, request: &RequestScript, index: usize) -> String {
         if let Some(name) = &request.name {
-            format!("{filename} / {name}")
+            format!("{request_module_name} / {name}")
         } else {
-            format!("{filename} / #{}", index + 1)
+            format!("{request_module_name} / #{}", index + 1)
         }
     }
 }

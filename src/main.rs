@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use dothttp::{
     output::{parse_format, print::FormattedOutput},
+    source::FilesSourceProvider,
     ClientConfig, EnvironmentFileProvider, Runtime,
 };
 
@@ -22,11 +23,7 @@ struct Args {
     #[arg(short, long)]
     environment: Option<String>,
 
-    files: Vec<PathBuf>,
-
-    /// Specific request number to run
-    #[arg(short, long)]
-    request: Option<usize>,
+    files: Vec<String>,
 
     /// The format of the request output
     ///
@@ -67,7 +64,6 @@ async fn main() -> Result<()> {
         snapshot,
         environment,
         files,
-        request,
         accept_invalid_cert,
         request_format,
         response_format,
@@ -90,7 +86,9 @@ async fn main() -> Result<()> {
 
     let mut runtime = Runtime::new(&mut environment, output.borrow_mut(), client_config).unwrap();
 
-    runtime.execute(files.into_iter(), request).await
+    runtime
+        .execute(FilesSourceProvider::from_list(&files)?)
+        .await
 }
 
 fn preprocess_format_strings(format: String) -> String {

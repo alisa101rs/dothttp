@@ -1,4 +1,4 @@
-use dothttp::{ClientConfig, Runtime, StaticEnvironmentProvider};
+use dothttp::{source::FileSourceProvider, ClientConfig, Runtime, StaticEnvironmentProvider};
 use serde_json::json;
 
 use crate::common::{formatter, MockHttpBin};
@@ -12,9 +12,8 @@ async fn multi_post() {
     let mut environment =
         StaticEnvironmentProvider::new(json!({ "host": format!("0.0.0.0:{}", server.port) }));
     let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
-
     let result = runtime
-        .execute(Some("tests/requests/multi.http".into()), None)
+        .execute(FileSourceProvider::new("tests/requests/multi.http", None).unwrap())
         .await;
 
     assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);
