@@ -11,14 +11,7 @@ use axum::{
 use dothttp::output::{parse_format, print::FormattedOutput};
 use http::header::CONTENT_TYPE;
 use serde_json::json;
-use tempfile::{NamedTempFile, TempPath};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-
-pub fn create_file(contents: &str) -> TempPath {
-    let mut file = NamedTempFile::new().unwrap();
-    writeln!(file, "{}", contents).unwrap();
-    file.into_temp_path()
-}
 
 pub fn formatter() -> FormattedOutput<DebugWriter> {
     let writer = DebugWriter(String::new());
@@ -45,6 +38,7 @@ impl Write for DebugWriter {
 }
 
 pub struct MockHttpBin {
+    pub port: u16,
     handle: tokio::task::JoinHandle<Result<(), io::Error>>,
     requests: Receiver<(Parts, Bytes)>,
 }
@@ -58,13 +52,17 @@ impl MockHttpBin {
             .route("/post", post(mock_post))
             .layer(Extension(tx));
 
-        let listener = tokio::net::TcpListener::bind("0.0.0.0:38888")
-            .await
-            .unwrap();
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:0").await.unwrap();
+
+        let port = listener.local_addr().unwrap().port();
 
         let handle = tokio::spawn(axum::serve(listener, router).into_future());
 
-        MockHttpBin { handle, requests }
+        MockHttpBin {
+            handle,
+            requests,
+            port,
+        }
     }
 
     pub async fn requests(&mut self) -> Vec<(Parts, Bytes)> {

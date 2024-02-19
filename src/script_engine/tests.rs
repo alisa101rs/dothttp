@@ -2,7 +2,7 @@ use serde_json::json;
 
 use crate::{
     http::{Response, Version},
-    script_engine::{create_script_engine, inject, Script, ScriptEngine},
+    script_engine::{create_script_engine, inject, Script},
     StaticEnvironmentProvider,
 };
 
