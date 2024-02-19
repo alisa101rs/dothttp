@@ -32,10 +32,11 @@ impl<W: Write> FormattedOutput<W> {
 }
 
 fn format_headers(headers: &[(String, String)]) -> String {
-    headers
-        .iter()
-        .map(|(key, value)| format!("{}: {}\n", key, value))
-        .collect()
+    headers.iter().fold(String::new(), |mut acc, (key, value)| {
+        use std::fmt::Write;
+        writeln!(&mut acc, "{}: {}", key, value).unwrap();
+        acc
+    })
 }
 
 fn format_body(body: &Option<String>) -> String {
