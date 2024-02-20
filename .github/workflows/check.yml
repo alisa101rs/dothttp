@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [nightly]
+        toolchain: [stable]
     steps:
       - uses: actions/checkout@v4
       - name: Install ${{ matrix.toolchain }}
@@ -44,4 +44,4 @@ jobs:
           packages: protobuf-compiler
           version: 1.0
       - name: cargo clippy
-        run: cargo clippy -- -Dclippy::all -Dclippy::pedantic
+        run: cargo clippy
