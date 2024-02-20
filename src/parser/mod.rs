@@ -172,20 +172,17 @@ impl FromPair for Header {
             Rule::header_field => {
                 let selection = pair.as_span().to_selection(filename.clone());
                 let mut pairs = pair.into_inner();
+                let field_name = find_rule!(pairs, Rule::field_name)
+                    .unwrap()
+                    .as_str()
+                    .to_owned();
+                let field_value = find_rule!(pairs, Rule::field_value).unwrap();
+                let field_value = Value::from_pair(filename.clone(), field_value);
+
                 Header {
                     selection,
-                    field_name: pairs
-                        .find_map(|pair| match pair.as_rule() {
-                            Rule::field_name => Some(pair.as_str().to_string()),
-                            _ => None,
-                        })
-                        .unwrap(),
-                    field_value: pairs
-                        .find_map(|pair| match pair.as_rule() {
-                            Rule::field_value => Some(Value::from_pair(filename.clone(), pair)),
-                            _ => None,
-                        })
-                        .unwrap(),
+                    field_name,
+                    field_value,
                 }
             }
             _ => invalid_pair(Rule::header_field, pair.as_rule()),

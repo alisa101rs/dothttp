@@ -2,7 +2,7 @@ use serde_json::json;
 
 use crate::{
     http::{Response, Version},
-    script_engine::{create_script_engine, inject, Script},
+    script_engine::{create_script_engine, inject, Script, ScriptEngine},
     StaticEnvironmentProvider,
 };
 
@@ -93,7 +93,7 @@ fn test_headers_available_in_response() {
         status: "".to_string(),
     };
 
-    inject(engine.as_mut(), &response).unwrap();
+    inject(&mut engine, &response).unwrap();
 
     let result = engine
         .execute_script(&Script::internal_script("response.headers['X-Auth-Token']"))

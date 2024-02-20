@@ -407,3 +407,28 @@ my-header: {{variable2}}
     );
     assert_eq!(request_script.next(), None);
 }
+
+#[test]
+fn correct_field_value() {
+    let test = "{{ x }} + x + {{y  }}";
+    let rule = ScriptParser::parse(Rule::field_value, test)
+        .unwrap()
+        .next()
+        .unwrap();
+
+    let value = Value::from_pair("/".into(), rule);
+
+    let Unprocessed::WithInline {
+        value,
+        inline_scripts,
+        ..
+    } = value.state
+    else {
+        panic!("Invalid state")
+    };
+
+    assert_eq!(inline_scripts.len(), 2);
+    assert_eq!(inline_scripts[0].script, "x");
+    assert_eq!(inline_scripts[1].script, "y");
+    assert_eq!(value, test);
+}

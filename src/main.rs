@@ -1,7 +1,7 @@
 use std::{borrow::BorrowMut, io::stdout, path::PathBuf};
 
-use anyhow::Result;
 use clap::Parser;
+use color_eyre::Result;
 use dothttp::{
     output::{parse_format, print::FormattedOutput},
     source::FilesSourceProvider,
@@ -59,6 +59,8 @@ struct Args {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
+    color_eyre::install()?;
+
     let Args {
         environment_file,
         snapshot,

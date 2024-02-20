@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
 use crate::{
-    environment::EnvironmentProvider, http, parser::Selection, script_engine::report::TestsReport,
+    environment::EnvironmentProvider,
+    http,
+    parser::Selection,
+    script_engine::{boa::BoaScriptEngine, report::TestsReport},
     Result,
 };
 
@@ -41,11 +44,8 @@ pub struct InlineScript {
     pub selection: Selection,
 }
 
-pub fn create_script_engine(
-    environment: &mut dyn EnvironmentProvider,
-) -> Result<Box<dyn ScriptEngine>> {
-    use crate::script_engine::boa::BoaScriptEngine;
-    Ok(Box::new(BoaScriptEngine::new(environment.snapshot())?))
+pub fn create_script_engine(environment: &mut dyn EnvironmentProvider) -> Result<BoaScriptEngine> {
+    Ok(BoaScriptEngine::new(environment.snapshot())?)
 }
 
 pub struct Script<'a> {

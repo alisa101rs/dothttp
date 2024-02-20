@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::Context;
+use color_eyre::eyre::Context;
 use http::Uri;
 use reqwest::{header::HeaderMap, Client, RequestBuilder, Url};
 
@@ -117,7 +117,7 @@ async fn map_reqwest_response(response: reqwest::Response) -> Result<Response> {
 }
 
 impl TryFrom<&HeaderMap> for Headers {
-    type Error = anyhow::Error;
+    type Error = crate::Error;
 
     fn try_from(value: &HeaderMap) -> Result<Self> {
         let mut headers = vec![];

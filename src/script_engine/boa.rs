@@ -1,12 +1,12 @@
 use std::convert::From;
 
-use anyhow::{anyhow, Context as _};
 use boa_engine::{
     js_string,
     object::{FunctionObjectBuilder, ObjectInitializer},
     property::{Attribute, PropertyDescriptor},
     Context, JsBigInt, JsError, JsNativeError, JsResult, JsString, JsValue, NativeFunction, Source,
 };
+use color_eyre::eyre::{anyhow, Context as _};
 use rand::{distributions::DistString, prelude::Distribution};
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -536,6 +536,6 @@ impl Random {
     }
 }
 
-fn map_js_error(error: JsError) -> anyhow::Error {
+fn map_js_error(error: JsError) -> crate::Error {
     anyhow!("{error}")
 }
