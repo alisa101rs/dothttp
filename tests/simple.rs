@@ -9,7 +9,7 @@ async fn test_simple_get() {
     let mut server = MockHttpBin::start().await;
     let mut output = formatter();
     let mut environment = StaticEnvironmentProvider::new(
-        json!({ "host": format!("0.0.0.0:{}", server.port), "variable": "42" }),
+        json!({ "host": format!("127.0.0.1:{}", server.addr.port()), "variable": "42" }),
     );
     let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
 
@@ -27,7 +27,7 @@ async fn test_simple_post() {
     let mut server = MockHttpBin::start().await;
     let mut output = formatter();
     let mut environment = StaticEnvironmentProvider::new(
-        json!({ "host": format!("0.0.0.0:{}", server.port), "variable": "42", "another_variable": "9000" }),
+        json!({ "host": format!("127.0.0.1:{}", server.addr.port()), "variable": "42", "another_variable": "9000" }),
     );
     let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
 
