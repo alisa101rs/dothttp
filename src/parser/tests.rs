@@ -32,7 +32,7 @@ Accept: */*
 ";
     let files = ScriptParser::parse(Rule::file, test);
     if let Err(e) = &files {
-        println!("{}", e.to_string());
+        println!("{}", e);
     }
     assert!(files.is_ok());
 
@@ -196,7 +196,7 @@ Content-Type: {{ content_type }}
 %}";
     let request_script = ScriptParser::parse(Rule::request_script, test);
     if let Err(e) = &request_script {
-        println!("{}", e.to_string());
+        println!("{}", e);
     }
 
     assert!(request_script.is_ok());
@@ -298,7 +298,7 @@ fn multiline_request_line() {
 
     assert!(file.is_ok());
 
-    let mut pairs = file.unwrap().into_iter();
+    let mut pairs = file.unwrap();
 
     let method = pairs.next().unwrap().as_str();
     assert_eq!(method, "GET");

@@ -67,27 +67,21 @@ impl ToSelection for LineColLocation {
 
 impl FromPair for Handler {
     fn from_pair(filename: PathBuf, pair: Pair<'_, Rule>) -> Self {
-        match pair.as_rule() {
-            Rule::response_handler => Handler {
-                selection: pair.as_span().to_selection(filename),
-                script: pair
-                    .into_inner()
-                    .find_map(|pair| match pair.as_rule() {
-                        Rule::handler_script => Some(
-                            pair.into_inner()
-                                .find_map(|pair| match pair.as_rule() {
-                                    Rule::handler_script_string => Some(pair.as_str()),
-                                    _ => None,
-                                })
-                                .unwrap(),
-                        ),
-                        _ => None,
-                    })
-                    .unwrap()
-                    .to_string(),
-            },
+        let selection = pair.as_span().to_selection(filename);
+
+        let script = match pair.as_rule() {
+            Rule::response_handler | Rule::pre_request_handler => pair
+                .into_inner()
+                .find_map(|pair| match pair.as_rule() {
+                    Rule::handler_script_string => Some(pair.as_str()),
+                    _ => None,
+                })
+                .unwrap()
+                .to_string(),
             _ => invalid_pair(Rule::response_handler, pair.as_rule()),
-        }
+        };
+
+        Handler { selection, script }
     }
 }
 
@@ -115,7 +109,7 @@ impl FromPair for Value {
             (Rule::request_target, string)
             | (Rule::field_value, string)
             | (Rule::request_body, string) => {
-                let selection = pair.as_span().clone().to_selection(filename.clone());
+                let selection = pair.as_span().to_selection(filename.clone());
                 let inline_scripts = pair
                     .into_inner()
                     .filter(|pair| pair.as_rule() == Rule::inline_script)
@@ -163,7 +157,7 @@ impl FromPair for Header {
     fn from_pair(filename: PathBuf, pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
             Rule::header_field => {
-                let selection = pair.as_span().clone().to_selection(filename.clone());
+                let selection = pair.as_span().to_selection(filename.clone());
                 let mut pairs = pair.into_inner();
                 Header {
                     selection,
@@ -190,7 +184,7 @@ impl FromPair for Request {
     fn from_pair(filename: PathBuf, pair: Pair<'_, Rule>) -> Self {
         match pair.as_rule() {
             Rule::request_script => {
-                let selection = pair.as_span().clone().to_selection(filename.clone());
+                let selection = pair.as_span().to_selection(filename.clone());
                 let mut pairs = pair.into_inner();
                 Request {
                     selection,
@@ -243,6 +237,14 @@ impl FromPair for RequestScript {
                         .and_then(|it| if it.is_empty() { None } else { Some(it) })
                 },
                 selection: pair.as_span().to_selection(filename.clone()),
+                pre_request_handler: {
+                    let mut pairs = pair.clone().into_inner();
+                    let pair = pairs.find_map(|pair| match pair.as_rule() {
+                        Rule::pre_request_handler => Some(pair),
+                        _ => None,
+                    });
+                    pair.map(|pair| Handler::from_pair(filename.clone(), pair))
+                },
                 handler: {
                     let mut pairs = pair.clone().into_inner();
                     let pair = pairs.find_map(|pair| match pair.as_rule() {
@@ -342,6 +344,7 @@ pub struct File {
 pub struct RequestScript {
     pub name: Option<String>,
     pub request: Request,
+    pub pre_request_handler: Option<Handler>,
     pub handler: Option<Handler>,
     pub selection: Selection,
 }

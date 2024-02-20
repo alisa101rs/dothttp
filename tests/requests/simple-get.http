@@ -1,0 +1,12 @@
+### test_simple_get
+
+GET http://{{host}}/get?value=10
+my-header: {{variable}}
+
+> {%
+   client.test("correct response", () => {
+      client.assert(response.body["headers"]["my-header"] == "42");
+      client.assert(response.body["args"]["value"] == "10");
+   });
+%}
+

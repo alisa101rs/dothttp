@@ -23,7 +23,7 @@ pub struct BoaScriptEngine {
 }
 
 impl BoaScriptEngine {
-    pub fn new(environment: Value, snapshot: Value) -> Result<BoaScriptEngine> {
+    pub fn new(environment: Value) -> Result<BoaScriptEngine> {
         let context = Context::default();
 
         let mut engine = BoaScriptEngine {
@@ -31,7 +31,7 @@ impl BoaScriptEngine {
             environment,
         };
 
-        Self::register_global_environment(&mut engine.context, &engine.environment, &snapshot)?;
+        Self::register_global_environment(&mut engine.context, &engine.environment)?;
         Self::register_global_json_object("_tests", &json!({}), &mut engine.context)?;
 
         Self::register_client_object(&mut engine.context)?;
@@ -40,21 +40,10 @@ impl BoaScriptEngine {
         Ok(engine)
     }
 
-    fn register_global_environment(
-        context: &mut Context,
-        environment: &Value,
-        snapshot: &Value,
-    ) -> Result<()> {
+    fn register_global_environment(context: &mut Context, environment: &Value) -> Result<()> {
         for (k, v) in environment
             .as_object()
             .ok_or_else(|| anyhow!("Expected environment to be an object"))?
-        {
-            Self::register_global_json_object(k, v, context)?;
-        }
-
-        for (k, v) in snapshot
-            .as_object()
-            .ok_or_else(|| anyhow!("Expected snapshot to be an object"))?
         {
             if k == "client" {
                 return Err(anyhow!(
@@ -65,7 +54,6 @@ impl BoaScriptEngine {
         }
 
         Self::register_global_json_object("_env", environment, context)?;
-        Self::register_global_json_object("_snapshot", &snapshot, context)?;
 
         Ok(())
     }
@@ -132,7 +120,7 @@ impl ScriptEngine for BoaScriptEngine {
     fn reset(&mut self) -> Result<()> {
         let snapshot = self.snapshot()?;
 
-        *self = BoaScriptEngine::new(std::mem::take(&mut self.environment), snapshot)?;
+        *self = BoaScriptEngine::new(snapshot)?;
         Ok(())
     }
 
@@ -140,7 +128,7 @@ impl ScriptEngine for BoaScriptEngine {
         let snapshot = self
             .context
             .global_object()
-            .get("_snapshot", &mut self.context)
+            .get("_env", &mut self.context)
             .unwrap();
 
         let json = snapshot
@@ -186,7 +174,7 @@ impl Client {
     }
 
     fn test(this: &JsValue, args: &[JsValue], context: &mut Context) -> JsResult<JsValue> {
-        let Some(JsValue::String(test_name)) = args.get(0) else {
+        let Some(JsValue::String(test_name)) = args.first() else {
             return Err(JsNativeError::typ()
                 .with_message("Expected to get test name")
                 .into());
@@ -228,7 +216,7 @@ impl Client {
     }
 
     fn assert(_this: &JsValue, args: &[JsValue], _context: &mut Context) -> JsResult<JsValue> {
-        let Some(JsValue::Boolean(condition)) = args.get(0) else {
+        let Some(JsValue::Boolean(condition)) = args.first() else {
             return Err(JsNativeError::typ()
                 .with_message("Expected to get assert condition")
                 .into());
@@ -238,7 +226,7 @@ impl Client {
             .get(1)
             .and_then(|it| it.as_string())
             .cloned()
-            .unwrap_or_else(|| js_string!("Assertion failed").into());
+            .unwrap_or_else(|| js_string!("Assertion failed"));
 
         if !condition {
             return Err(JsError::from_opaque(JsValue::String(
@@ -250,7 +238,7 @@ impl Client {
     }
 
     fn log(_this: &JsValue, args: &[JsValue], _context: &mut Context) -> JsResult<JsValue> {
-        if let Some(JsValue::String(message)) = args.get(0) {
+        if let Some(JsValue::String(message)) = args.first() {
             println!("{}", message.to_std_string_escaped())
         }
         Ok(JsValue::Undefined)
@@ -282,19 +270,15 @@ impl Global {
         Ok(JsValue::Object(global.build()))
     }
     fn get(_this: &JsValue, args: &[JsValue], ctx: &mut Context) -> JsResult<JsValue> {
-        let Some(JsValue::String(key)) = args.get(0) else {
+        let Some(JsValue::String(key)) = args.first() else {
             return Ok(JsValue::Null);
         };
 
-        if let Some(JsValue::Object(snapshot)) = ctx.global_object().get("_snapshot", ctx).ok() {
-            let value = snapshot.get(key.clone(), ctx)?;
+        if let Ok(JsValue::Object(env)) = ctx.global_object().get("_env", ctx) {
+            let value = env.get(key.clone(), ctx)?;
             if !value.is_null_or_undefined() {
                 return Ok(value);
             }
-        }
-
-        if let Some(JsValue::Object(env)) = ctx.global_object().get("_env", ctx).ok() {
-            return env.get(key.clone(), ctx);
         }
 
         Ok(JsValue::Null)
@@ -313,7 +297,7 @@ impl Global {
             return Ok(JsValue::Undefined);
         }
 
-        if let Some(JsValue::Object(snapshot)) = ctx.global_object().get("_snapshot", ctx).ok() {
+        if let Ok(JsValue::Object(snapshot)) = ctx.global_object().get("_env", ctx) {
             snapshot.set(key.clone(), value.clone(), false, ctx)?;
         }
 
@@ -389,7 +373,7 @@ impl Random {
         args: &[JsValue],
         _context: &mut Context,
     ) -> JsResult<JsValue> {
-        let Some(&JsValue::Integer(len)) = args.get(0) else {
+        let Some(&JsValue::Integer(len)) = args.first() else {
             return Err(JsNativeError::typ()
                 .with_message("Expected to get an integer")
                 .into());
@@ -403,7 +387,7 @@ impl Random {
 
     /// This dynamic variable generates random sequence of uppercase and lowercase letters of length `length`
     fn alphabetic(_this: &JsValue, args: &[JsValue], _context: &mut Context) -> JsResult<JsValue> {
-        let Some(&JsValue::Integer(mut len)) = args.get(0) else {
+        let Some(&JsValue::Integer(mut len)) = args.first() else {
             return Err(JsNativeError::typ()
                 .with_message("Expected to get an integer")
                 .into());
@@ -423,7 +407,7 @@ impl Random {
     }
     /// This dynamic variable generates random hexadecimal string of length `length`
     fn hexadecimal(_this: &JsValue, args: &[JsValue], _context: &mut Context) -> JsResult<JsValue> {
-        let Some(&JsValue::Integer(mut len)) = args.get(0) else {
+        let Some(&JsValue::Integer(mut len)) = args.first() else {
             return Err(JsNativeError::typ()
                 .with_message("Expected to get an integer")
                 .into());

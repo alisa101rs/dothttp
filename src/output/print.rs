@@ -7,15 +7,15 @@ use crate::{
     Result,
 };
 
-pub struct FormattedOutput<'a, W: Write> {
-    writer: &'a mut W,
+pub struct FormattedOutput<W: Write> {
+    writer: W,
     request_format: Vec<FormatItem>,
     response_format: Vec<FormatItem>,
 }
 
-impl<'a, W: Write> FormattedOutput<'a, W> {
+impl<W: Write> FormattedOutput<W> {
     pub fn new(
-        writer: &mut W,
+        writer: W,
         request_format: Vec<FormatItem>,
         response_format: Vec<FormatItem>,
     ) -> FormattedOutput<W> {
@@ -25,13 +25,18 @@ impl<'a, W: Write> FormattedOutput<'a, W> {
             response_format,
         }
     }
+
+    pub fn into_writer(self) -> W {
+        self.writer
+    }
 }
 
 fn format_headers(headers: &[(String, String)]) -> String {
-    headers
-        .iter()
-        .map(|(key, value)| format!("{}: {}\n", key, value))
-        .collect()
+    headers.iter().fold(String::new(), |mut acc, (key, value)| {
+        use std::fmt::Write;
+        writeln!(&mut acc, "{}: {}", key, value).unwrap();
+        acc
+    })
 }
 
 fn format_body(body: &Option<String>) -> String {
@@ -60,7 +65,7 @@ fn format_tests(report: &TestsReport) -> String {
     output
 }
 
-impl<'a, W: Write> Output for FormattedOutput<'a, W> {
+impl<W: Write> Output for FormattedOutput<W> {
     fn response(&mut self, response: &http::Response, tests: &TestsReport) -> Result<()> {
         if self.response_format.is_empty() {
             return Ok(());

@@ -1,23 +1,24 @@
-use std::{
-    borrow::BorrowMut,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::borrow::BorrowMut;
 
 use anyhow::{anyhow, Context};
-use serde_json::Value;
 
+pub use crate::{
+    environment::{EnvironmentFileProvider, EnvironmentProvider, StaticEnvironmentProvider},
+    source::SourceProvider,
+};
 use crate::{
     http::{reqwest::ReqwestHttpClient, HttpClient, Request},
     output::Output,
-    parser::{parse, Header, RequestScript},
+    parser::{Header, RequestScript},
     script_engine::{create_script_engine, report::TestsReport, ScriptEngine},
 };
 
+mod environment;
 mod http;
 pub mod output;
 pub(crate) mod parser;
 mod script_engine;
+pub mod source;
 
 pub type Result<T> = anyhow::Result<T>;
 
@@ -37,114 +38,88 @@ impl ClientConfig {
     }
 }
 
-pub struct Runtime<'a> {
+pub struct Runtime<'a, E> {
     engine: Box<dyn ScriptEngine>,
-    snapshot_file: PathBuf,
+    environment: &'a mut E,
     output: &'a mut dyn Output,
-    client: Box<dyn HttpClient>,
+    client: Box<ReqwestHttpClient>,
 }
 
-impl<'a> Runtime<'a> {
+impl<'a, E> Runtime<'a, E>
+where
+    E: EnvironmentProvider,
+{
     pub fn new(
-        env: &str,
-        snapshot_file: &Path,
-        env_file: &Path,
+        environment: &'a mut E,
         output: &'a mut dyn Output,
         config: ClientConfig,
-    ) -> Result<Runtime<'a>> {
-        let Value::Object(mut environment) =
-            read_json_content(env_file).context("environment deserialization")?
-        else {
-            return Err(anyhow!("Expected environment file to be a map"));
-        };
-
-        let environment = environment
-            .remove(env)
-            .unwrap_or_else(|| serde_json::json!({}));
-
-        let snapshot = read_json_content(snapshot_file).context("snapshot deserialization")?;
-
-        let engine = create_script_engine(environment, snapshot)?;
+    ) -> Result<Runtime<'a, E>> {
+        let engine = create_script_engine(environment)?;
         let client = Box::new(ReqwestHttpClient::create(config));
 
         Ok(Runtime {
             output,
-            snapshot_file: PathBuf::from(snapshot_file),
+            environment,
             engine,
             client,
         })
     }
 
-    pub fn execute(
-        &mut self,
-        files: impl IntoIterator<Item = PathBuf>,
-        request: Option<usize>,
-    ) -> Result<()> {
+    pub async fn execute(&mut self, mut source_provider: impl SourceProvider) -> Result<()> {
         let mut errors = vec![];
 
         let engine = &mut *self.engine;
         let output = self.output.borrow_mut();
         let client = &self.client;
 
-        for script_file in files {
-            let file = fs::read_to_string(&script_file)
-                .with_context(|| format!("Failed opening script file: {:?}", script_file))?;
-            let file = &mut parse(script_file.to_path_buf(), file.as_str())
-                .with_context(|| format!("Failed parsing file: {:?}", script_file))?;
+        for source in source_provider.requests() {
+            let request_name = Self::section_name(source.name, source.script, source.index);
+            let request = process(engine, &source.script.request)
+                .with_context(|| format!("Failed processing request {request_name}"))?;
+            output
+                .request(&request, &request_name)
+                .with_context(|| format!("Failed outputting request {request_name}"))?;
+            let response = client
+                .execute(&request)
+                .await
+                .with_context(|| format!("Error executing request {request_name}"))?;
 
-            let request_scripts = file.request_scripts(request);
+            let report = if let Some(parser::Handler { script, selection }) = &source.script.handler
+            {
+                engine
+                    .handle(
+                        &script_engine::Script {
+                            selection: selection.clone(),
+                            src: script.as_str(),
+                        },
+                        &response,
+                    )
+                    .with_context(|| {
+                        format!("Error handling response for request {request_name}",)
+                    })?;
 
-            for (index, request_script) in request_scripts {
-                let request_name = Self::section_name(&script_file, request_script, index);
-                let request = process(engine, &request_script.request)
-                    .with_context(|| format!("Failed processing request {request_name}"))?;
-                output
-                    .request(&request, &request_name)
-                    .with_context(|| format!("Failed outputting request {request_name}"))?;
+                let test_report = engine.report().context("failed to get test report")?;
+                errors.extend(test_report.failed().map(|(k, _)| k.clone()));
 
-                let response = client
-                    .execute(&request)
-                    .with_context(|| format!("Error executing request {request_name}"))?;
+                test_report
+            } else {
+                TestsReport::default()
+            };
 
-                let report =
-                    if let Some(parser::Handler { script, selection }) = &request_script.handler {
-                        engine
-                            .handle(
-                                &script_engine::Script {
-                                    selection: selection.clone(),
-                                    src: script.as_str(),
-                                },
-                                &response,
-                            )
-                            .with_context(|| {
-                                format!("Error handling response for request {request_name}",)
-                            })?;
+            output.response(&response, &report).with_context(|| {
+                format!("Error outputting response for request {request_name}",)
+            })?;
 
-                        let test_report = engine.report().context("failed to get test report")?;
-                        errors.extend(test_report.failed().map(|(k, _)| k.clone()));
-
-                        test_report
-                    } else {
-                        TestsReport::default()
-                    };
-
-                output.response(&response, &report).with_context(|| {
-                    format!("Error outputting response for request {request_name}",)
-                })?;
-
-                engine.reset().unwrap();
-            }
+            engine.reset().unwrap();
         }
 
         let snapshot = engine
             .snapshot()
             .with_context(|| "Error creating snapshot")?;
 
-        fs::write(
-            self.snapshot_file.as_path(),
-            serde_json::to_vec(&snapshot).unwrap(),
-        )
-        .with_context(|| "Error writing snapshot")?;
+        self.environment
+            .save(&snapshot)
+            .with_context(|| "Error writing snapshot")?;
 
         if !errors.is_empty() {
             let failed_tests = errors.join(", ");
@@ -153,15 +128,11 @@ impl<'a> Runtime<'a> {
         Ok(())
     }
 
-    fn section_name(file: &Path, request: &RequestScript, index: usize) -> String {
-        let filename = file
-            .file_name()
-            .and_then(|it| it.to_str())
-            .unwrap_or_else(|| "");
+    fn section_name(request_module_name: &str, request: &RequestScript, index: usize) -> String {
         if let Some(name) = &request.name {
-            format!("{filename} / {name}")
+            format!("{request_module_name} / {name}")
         } else {
-            format!("{filename} / #{}", index + 1)
+            format!("{request_module_name} / #{}", index + 1)
         }
     }
 }
@@ -252,13 +223,5 @@ impl From<&parser::Value> for script_engine::Value<script_engine::Unprocessed> {
         script_engine::Value {
             state: state.into(),
         }
-    }
-}
-
-fn read_json_content(path: &Path) -> Result<Value> {
-    match fs::read(path) {
-        Ok(data) => Ok(serde_json::from_slice(&data).context("json deserialization")?),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
-        Err(e) => Err(anyhow!("IO Error: {e}")),
     }
 }

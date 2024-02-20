@@ -1,18 +1,15 @@
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::{
     http::{Response, Version},
-    script_engine::{create_script_engine, inject, Script, ScriptEngine},
+    script_engine::{create_script_engine, inject, Script},
+    StaticEnvironmentProvider,
 };
-
-fn setup(snapshot: Value) -> Box<dyn ScriptEngine> {
-    let engine = create_script_engine(json! { {} }, snapshot).unwrap();
-    return engine;
-}
 
 #[test]
 fn test_syntax_error() {
-    let mut engine = setup(json! { {} });
+    let mut env = StaticEnvironmentProvider::new(json!({}));
+    let mut engine = create_script_engine(&mut env).unwrap();
 
     let result = engine.execute_script(&Script::internal_script("..test"));
 
@@ -25,7 +22,8 @@ fn test_syntax_error() {
 
 #[test]
 fn test_parse_error() {
-    let mut engine = setup(json!({}));
+    let mut env = StaticEnvironmentProvider::new(json!({}));
+    let mut engine = create_script_engine(&mut env).unwrap();
 
     let result = engine.execute_script(&Script::internal_script(".test"));
 
@@ -46,7 +44,8 @@ fn test_parse_error() {
 
 #[test]
 fn test_initialize() {
-    let mut engine = create_script_engine(json!({ "a": "1" }), json!({})).unwrap();
+    let mut env = StaticEnvironmentProvider::new(json! ( { "a": "1"} ));
+    let mut engine = create_script_engine(&mut env).unwrap();
 
     let result = engine.execute_script(&Script::internal_script("a"));
 
@@ -59,7 +58,9 @@ fn test_initialize() {
 
 #[test]
 fn test_reset() {
-    let mut engine = create_script_engine(json!({ "a": "1" }), json!({})).unwrap();
+    let mut env = StaticEnvironmentProvider::new(json! ( { "a": "1"} ));
+    let mut engine = create_script_engine(&mut env).unwrap();
+
     engine
         .execute_script(&Script::internal_script(
             r#"client.global.set("test", "test_value")"#,
@@ -79,7 +80,8 @@ fn test_reset() {
 
 #[test]
 fn test_headers_available_in_response() {
-    let mut engine = create_script_engine(json!({}), json!({})).unwrap();
+    let mut env = StaticEnvironmentProvider::new(json!({}));
+    let mut engine = create_script_engine(&mut env).unwrap();
 
     let headers = vec![("X-Auth-Token".to_string(), "SomeTokenValue".to_string())];
 

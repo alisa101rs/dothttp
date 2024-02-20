@@ -1,0 +1,43 @@
+POST http://{{host}}/post
+Content-Type: application/json
+
+{
+  "value": "true"
+}
+
+> {%
+    client.test("valid request", () => {
+        client.assert(response.status == 200);
+        client.assert(response.body["json"]["value"] == "true");
+    });
+%}
+
+
+###
+
+GET http://{{host}}
+    /get
+
+> {%
+    client.global.set("output", "true");
+    client.test("correct response", () => {
+        client.assert(response.status == 200);
+    });
+%}
+
+###
+
+GET http://{{host}}/get
+  ?x=y&
+  a=b
+
+
+> {%
+    client.test("correct response", () => {
+        client.assert(response.status == 200);
+        client.assert(response.body["args"]["x"] == "y");
+        client.assert(response.body["args"]["a"] == "b");
+    });
+%}
+
+
