@@ -34,7 +34,7 @@ jobs:
       matrix:
         toolchain: [nightly]
     steps:
-      - uses: actions/checkout@v4=
+      - uses: actions/checkout@v4
       - name: Install ${{ matrix.toolchain }}
         uses: dtolnay/rust-toolchain@clippy
         with:
