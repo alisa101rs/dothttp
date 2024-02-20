@@ -12,6 +12,15 @@ use pest_derive::Parser;
 
 use crate::Result;
 
+macro_rules! find_rule {
+    ($pairs: expr, $rule: pat) => {
+        $pairs.find_map(|pair| match pair.as_rule() {
+            $rule => Some(pair),
+            _ => None,
+        })
+    };
+}
+
 #[derive(Parser)]
 #[grammar = "parser/parser.pest"]
 struct ScriptParser;
@@ -106,9 +115,13 @@ impl FromPair for Method {
 impl FromPair for Value {
     fn from_pair(filename: PathBuf, pair: Pair<'_, Rule>) -> Self {
         match (pair.as_rule(), pair.as_str()) {
-            (Rule::request_target, string)
-            | (Rule::field_value, string)
-            | (Rule::request_body, string) => {
+            (
+                Rule::request_target
+                | Rule::field_value
+                | Rule::request_body
+                | Rule::request_variable_value,
+                string,
+            ) => {
                 let selection = pair.as_span().to_selection(filename.clone());
                 let inline_scripts = pair
                     .into_inner()
@@ -237,6 +250,15 @@ impl FromPair for RequestScript {
                         .and_then(|it| if it.is_empty() { None } else { Some(it) })
                 },
                 selection: pair.as_span().to_selection(filename.clone()),
+                inline_variables: {
+                    let declarations = find_rule!(
+                        pair.clone().into_inner(),
+                        Rule::request_variable_declarations
+                    );
+                    declarations
+                        .map(|it| request_variable_declaration_from_pair(filename.clone(), it))
+                        .unwrap_or_else(|| vec![])
+                },
                 pre_request_handler: {
                     let mut pairs = pair.clone().into_inner();
                     let pair = pairs.find_map(|pair| match pair.as_rule() {
@@ -258,6 +280,25 @@ impl FromPair for RequestScript {
             _ => invalid_pair(Rule::request_script, pair.as_rule()),
         }
     }
+}
+
+fn request_variable_declaration_from_pair(
+    filename: PathBuf,
+    pair: Pair<'_, Rule>,
+) -> Vec<(String, Value)> {
+    let mut output = vec![];
+    let declarations = pair.into_inner();
+
+    for declaration in declarations {
+        let mut declaration = declaration.into_inner();
+        let name = declaration.next().expect("request_variable_name");
+        let name = name.as_str().to_owned();
+        let value = declaration.next().expect("request_variable_value");
+        let value = Value::from_pair(filename.clone(), value);
+        output.push((name, value));
+    }
+
+    output
 }
 
 impl FromPair for File {
@@ -344,6 +385,7 @@ pub struct File {
 pub struct RequestScript {
     pub name: Option<String>,
     pub request: Request,
+    pub inline_variables: Vec<(String, Value)>,
     pub pre_request_handler: Option<Handler>,
     pub handler: Option<Handler>,
     pub selection: Selection,
