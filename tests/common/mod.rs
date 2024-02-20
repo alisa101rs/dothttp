@@ -1,4 +1,6 @@
-use std::{collections::HashMap, future::IntoFuture, io, io::Write, str::from_utf8};
+use std::{
+    collections::HashMap, future::IntoFuture, io, io::Write, net::SocketAddr, str::from_utf8,
+};
 
 use axum::{
     body::Bytes,
@@ -38,7 +40,7 @@ impl Write for DebugWriter {
 }
 
 pub struct MockHttpBin {
-    pub port: u16,
+    pub addr: SocketAddr,
     handle: tokio::task::JoinHandle<Result<(), io::Error>>,
     requests: Receiver<(Parts, Bytes)>,
 }
@@ -54,14 +56,14 @@ impl MockHttpBin {
 
         let listener = tokio::net::TcpListener::bind("0.0.0.0:0").await.unwrap();
 
-        let port = listener.local_addr().unwrap().port();
+        let addr = listener.local_addr().unwrap();
 
         let handle = tokio::spawn(axum::serve(listener, router).into_future());
 
         MockHttpBin {
             handle,
             requests,
-            port,
+            addr,
         }
     }
 
