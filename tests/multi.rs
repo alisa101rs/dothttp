@@ -9,8 +9,9 @@ mod common;
 async fn multi_post() {
     let mut server = MockHttpBin::start().await;
     let mut output = formatter();
-    let mut environment =
-        StaticEnvironmentProvider::new(json!({ "host": format!("{}", server.addr) }));
+    let mut environment = StaticEnvironmentProvider::new(
+        json!({ "host": format!("127.0.0.1:{}", server.addr.port()) }),
+    );
     let mut runtime = Runtime::new(&mut environment, &mut output, ClientConfig::default()).unwrap();
     let result = runtime
         .execute(FileSourceProvider::new("tests/requests/multi.http", None).unwrap())
