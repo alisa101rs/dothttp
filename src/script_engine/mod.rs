@@ -5,7 +5,7 @@ use serde_json::Map;
 
 use crate::{
     environment::EnvironmentProvider,
-    http,
+    http, parser,
     parser::Selection,
     script_engine::{boa::BoaScriptEngine, report::TestsReport},
     Result,
@@ -45,7 +45,7 @@ pub struct InlineScript {
 }
 
 pub fn create_script_engine(environment: &mut dyn EnvironmentProvider) -> Result<BoaScriptEngine> {
-    Ok(BoaScriptEngine::new(environment.snapshot())?)
+    BoaScriptEngine::new(environment.snapshot())
 }
 
 pub struct Script<'a> {
@@ -73,7 +73,11 @@ pub trait ScriptEngine {
 
     fn report(&mut self) -> Result<TestsReport>;
 
+    fn define_variable(&mut self, name: &str, value: &str) -> Result<()>;
+    fn pre_handle(&mut self, script: &Script, request: &parser::Request) -> Result<()>;
     fn handle(&mut self, script: &Script, response: &http::Response) -> Result<()>;
+
+    fn resolve_request_variable(&mut self, name: &str) -> Result<String>;
 
     fn process(&mut self, value: Value<Unprocessed>) -> Result<Value<Processed>> {
         match value {
@@ -88,10 +92,7 @@ pub trait ScriptEngine {
                 let mut interpolated = value;
                 for inline_script in inline_scripts {
                     let placeholder = inline_script.placeholder.clone();
-                    let result = self.execute_script(&Script {
-                        selection: inline_script.selection.clone(),
-                        src: &inline_script.script,
-                    })?;
+                    let result = self.resolve_request_variable(&inline_script.script)?;
                     interpolated = interpolated.replacen(placeholder.as_str(), result.as_str(), 1);
                 }
 
@@ -156,5 +157,14 @@ fn inject(engine: &mut dyn ScriptEngine, response: &http::Response) -> Result<()
                 .unwrap();
         }
     }
+    Ok(())
+}
+
+pub fn inject_variable(
+    engine: &mut impl ScriptEngine,
+    name: &str,
+    value: Value<Processed>,
+) -> Result<()> {
+    engine.define_variable(name, &value.state.value)?;
     Ok(())
 }

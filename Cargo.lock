@@ -354,6 +354,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3190f92dfe48224adc92881c620f08ccf37ff62b91a094bb357fe53bd5e84647"
 
 [[package]]
+name = "boa_runtime"
+version = "0.17.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80e7606e8be709e82cb78c66bc6849dfcaa5fd0f551a215bd1cf6ab3b5bb4453"
+dependencies = [
+ "boa_engine",
+ "boa_gc",
+ "rustc-hash",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -554,6 +565,7 @@ version = "0.7.0"
 dependencies = [
  "axum",
  "boa_engine",
+ "boa_runtime",
  "chrono",
  "clap",
  "color-eyre",

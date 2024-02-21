@@ -1,11 +1,22 @@
 ### test_simple_get
 
+@super_variable = {{variable}} + 10
+
+< {%
+    request.variables.set("more_variable", request.environment.get("variable") + "123");
+%}
+
+
 GET http://{{host}}/get?value=10
-my-header: {{variable}}
+env: {{variable}}
+var-declaration: {{super_variable}}
+pre-request: {{more_variable}}
 
 > {%
    client.test("correct response", () => {
-      client.assert(response.body["headers"]["my-header"] == "42");
+      client.assert(response.body["headers"]["env"] == "42", "environment is not correct");
+      client.assert(response.body["headers"]["var-declaration"] == "42 + 10", "variable block is not correct");
+      client.assert(response.body["headers"]["pre-request"] == "42123", "pre request handler is not correct");
       client.assert(response.body["args"]["value"] == "10");
    });
 %}

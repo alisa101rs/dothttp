@@ -20,7 +20,7 @@ pub fn formatter() -> FormattedOutput<DebugWriter> {
     FormattedOutput::new(
         writer,
         parse_format("%R\n").unwrap(),
-        parse_format("%R\n%H\n%B\n").unwrap(),
+        parse_format("%R\n%H\n%B\n%T\n").unwrap(),
     )
 }
 

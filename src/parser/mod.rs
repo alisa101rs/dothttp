@@ -247,14 +247,14 @@ impl FromPair for RequestScript {
                         .and_then(|it| if it.is_empty() { None } else { Some(it) })
                 },
                 selection: pair.as_span().to_selection(filename.clone()),
-                inline_variables: {
+                request_variables: {
                     let declarations = find_rule!(
                         pair.clone().into_inner(),
                         Rule::request_variable_declarations
                     );
                     declarations
                         .map(|it| request_variable_declaration_from_pair(filename.clone(), it))
-                        .unwrap_or_else(|| vec![])
+                        .unwrap_or_else(Vec::new)
                 },
                 pre_request_handler: {
                     let mut pairs = pair.clone().into_inner();
@@ -382,7 +382,7 @@ pub struct File {
 pub struct RequestScript {
     pub name: Option<String>,
     pub request: Request,
-    pub inline_variables: Vec<(String, Value)>,
+    pub request_variables: Vec<(String, Value)>,
     pub pre_request_handler: Option<Handler>,
     pub handler: Option<Handler>,
     pub selection: Selection,

@@ -26,6 +26,15 @@ impl<'a> Executor<'a> {
         }
     }
 
+    fn process_variables(&self, engine: &mut impl ScriptEngine) -> Result<()> {
+        for (variable, value) in &self.source.script.request_variables {
+            let processed = engine.process(value.into())?;
+            script_engine::inject_variable(engine, variable, processed)?;
+        }
+
+        Ok(())
+    }
+
     fn process_header(
         &self,
         engine: &mut impl ScriptEngine,
@@ -51,6 +60,25 @@ impl<'a> Executor<'a> {
             .iter()
             .map(|header| self.process_header(engine, header))
             .collect()
+    }
+
+    fn pre_process_request(&self, engine: &mut impl ScriptEngine) -> Result<()> {
+        let Some(parser::Handler { script, selection }) = &self.source.script.pre_request_handler
+        else {
+            return Ok(());
+        };
+
+        engine
+            .pre_handle(
+                &script_engine::Script {
+                    selection: selection.clone(),
+                    src: script.as_str(),
+                },
+                &self.source.script.request,
+            )
+            .with_context(|| format!("Error pre handling request {}", self.request_name()))?;
+
+        Ok(())
     }
 
     fn process_request(&self, engine: &mut impl ScriptEngine) -> Result<Request> {
@@ -94,7 +122,7 @@ impl<'a> Executor<'a> {
                     selection: selection.clone(),
                     src: script.as_str(),
                 },
-                &response,
+                response,
             )
             .with_context(|| {
                 format!(
@@ -113,6 +141,8 @@ impl<'a> Executor<'a> {
         output: &mut impl Output,
     ) -> Result<(String, TestsReport)> {
         let name = self.request_name();
+        self.process_variables(engine)?;
+        self.pre_process_request(engine)?;
         let request = self.process_request(engine)?;
 
         output.request(&request, &name)?;

@@ -17,7 +17,12 @@ async fn test_simple_get() {
         .execute(FileSourceProvider::new("tests/requests/simple-get.http", Some(1)).unwrap())
         .await;
 
-    assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);
+    assert!(
+        result.is_ok(),
+        "Failed test:\n{}\nerror: {:?}",
+        output.into_writer().0,
+        result.unwrap_err()
+    );
 
     assert_eq!(server.requests().await.len(), 1);
 }

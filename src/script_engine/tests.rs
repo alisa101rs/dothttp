@@ -47,12 +47,12 @@ fn test_initialize() {
     let mut env = StaticEnvironmentProvider::new(json! ( { "a": "1"} ));
     let mut engine = create_script_engine(&mut env).unwrap();
 
-    let result = engine.execute_script(&Script::internal_script("a"));
+    let result = engine.resolve_request_variable("a");
 
     assert!(result.is_ok());
 
     if let Ok(result_value) = result {
-        assert!(result_value == "1");
+        assert_eq!(result_value, "1");
     }
 }
 
@@ -69,7 +69,7 @@ fn test_reset() {
 
     engine.reset().unwrap();
 
-    let result = engine.execute_script(&Script::internal_script("test"));
+    let result = engine.resolve_request_variable("test");
 
     assert!(result.is_ok());
 
