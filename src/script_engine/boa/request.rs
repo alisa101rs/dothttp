@@ -1,11 +1,14 @@
+use std::fmt::Write;
+
 use boa_engine::{
-    object::ObjectInitializer, property::Attribute, Context, JsResult, JsValue, NativeFunction,
+    object::ObjectInitializer, property::Attribute, Context, JsNativeError, JsResult, JsValue,
+    NativeFunction,
 };
 
 use crate::{
     parser,
     script_engine::boa::{
-        map_js_error,
+        map_js_error, resolve_request_variable,
         variables::{VariableHolder, Variables},
         Environment,
     },
@@ -41,51 +44,29 @@ use crate::{
 ///      */
 ///     headers: RequestHeaders
 /// }
-/// interface RequestHeaders {
-///     /**
-///      * Array of all headers
-///      */
-///     all(): [RequestHeader]
 ///
-///     /**
-///      * Searches header by its name, returns null is there is not such header.
-///      * @param name header name for searching
-///      */
-///     findByName(name: string): RequestHeader | null
-/// }
-///
-/// /**
-///  * Information about request header
-///  */
-/// interface RequestHeader {
-///     /**
-///      * Header name
-///      */
-///     name: string
-///     /**
-///      * Gets raw header value, without any substituted variable. So, all {{var}} parts will stay unchanged.
-///      */
-///     getRawValue(): string;
-///
-///     /**
-///      * Tries substitute known variables inside header value and returns the result. All known {{var}} will be replaced by theirs values.
-///      * Unknown {{var}} will stay unchanged.
-///      */
-///     tryGetSubstitutedValue(): string;
-/// }
-///
-/// ```
 ///
 pub struct Request;
 
 impl Request {
-    pub fn register(context: &mut Context, _request: &parser::Request) -> crate::Result<()> {
+    pub fn register(context: &mut Context, request: &parser::Request) -> crate::Result<()> {
         let request_environment = RequestEnvironment::create(context)?;
         let request_variables = RequestVariables::create(context)?;
+        let url = ResolvableValue::create(request.target.state.value(), context)?;
+        let headers = Headers::create(&request.headers, context)?;
+        let body = if let Some(body) = &request.body {
+            ResolvableValue::create(body.state.value(), context)?
+        } else {
+            JsValue::Null
+        };
+
         let mut obj = ObjectInitializer::new(context);
 
         obj.property("environment", request_environment, Attribute::default());
         obj.property("variables", request_variables, Attribute::default());
+        obj.property("url", url, Attribute::default());
+        obj.property("body", body, Attribute::default());
+        obj.property("headers", headers, Attribute::default());
 
         let obj = obj.build();
 
@@ -146,3 +127,217 @@ impl RequestVariables {
 impl VariableHolder for RequestVariables {
     const NAME: &'static str = "__request_variables";
 }
+
+trait ResolvableInterface {
+    fn initialize(obj: &mut ObjectInitializer, value: &str) {
+        obj.property("__resolvable", value, Attribute::default());
+        obj.function(
+            NativeFunction::from_fn_ptr(Self::try_get_substituted),
+            "tryGetSubstituted",
+            0,
+        );
+        obj.function(
+            NativeFunction::from_fn_ptr(Self::try_get_substituted),
+            "tryGetSubstitutedValue",
+            0,
+        );
+        obj.function(
+            NativeFunction::from_fn_ptr(Self::get_raw_value),
+            "getRawValue",
+            0,
+        );
+        obj.function(
+            NativeFunction::from_fn_ptr(Self::get_raw_value),
+            "getRaw",
+            0,
+        );
+    }
+    fn try_get_substituted(
+        this: &JsValue,
+        _args: &[JsValue],
+        ctx: &mut Context,
+    ) -> JsResult<JsValue> {
+        let error = || {
+            JsNativeError::typ()
+                .with_message("not a valid object")
+                .into()
+        };
+
+        let Some(value) = this.as_object() else {
+            return Err(error());
+        };
+        let Some(raw) = value
+            .get("__resolvable", ctx)
+            .ok()
+            .and_then(|it| it.as_string().cloned())
+        else {
+            return Err(error());
+        };
+
+        let value = raw.to_std_string_escaped();
+
+        if !value.contains("{{") {
+            return Ok(value.into());
+        }
+
+        let mut resolved = String::new();
+
+        let mut rest = value.as_str();
+
+        while !rest.is_empty() {
+            if let Some(start) = rest.find("{{") {
+                let before = &rest[..start];
+                write!(resolved, "{before}").unwrap();
+
+                match rest.find("}}") {
+                    None => {
+                        write!(resolved, "{rest}").unwrap();
+                        rest = "";
+                    }
+                    Some(end) => {
+                        let variable = rest[start + 2..end].trim();
+                        rest = &rest[end + 2..];
+                        match resolve_request_variable(ctx, variable) {
+                            Ok(result) => {
+                                write!(resolved, "{result}").unwrap();
+                            }
+                            Err(_) => {
+                                write!(resolved, "{{{{{variable}}}}}").unwrap();
+                            }
+                        }
+                    }
+                }
+            } else {
+                write!(resolved, "{rest}").unwrap();
+                rest = "";
+            }
+        }
+
+        Ok(resolved.into())
+    }
+
+    fn get_raw_value(this: &JsValue, _args: &[JsValue], ctx: &mut Context) -> JsResult<JsValue> {
+        if let Some(value) = this.as_object() {
+            if let Some(raw) = value
+                .get("__resolvable", ctx)
+                .ok()
+                .and_then(|it| it.as_string().cloned())
+            {
+                return Ok(raw.clone().into());
+            }
+        }
+
+        Err(JsNativeError::typ()
+            .with_message("not a valid object")
+            .into())
+    }
+}
+
+pub struct ResolvableValue;
+
+impl ResolvableValue {
+    pub fn create(placeholder: &str, ctx: &mut Context) -> crate::Result<JsValue> {
+        let mut obj = ObjectInitializer::new(ctx);
+        Self::initialize(&mut obj, placeholder);
+
+        Ok(JsValue::Object(obj.build()))
+    }
+}
+
+impl ResolvableInterface for ResolvableValue {}
+
+/// ```typescript
+/// interface RequestHeaders {
+///     /**
+///      * Array of all headers
+///      */
+///     all(): [RequestHeader]
+///
+///     /**
+///      * Searches header by its name, returns null is there is not such header.
+///      * @param name header name for searching
+///      */
+///     findByName(name: string): RequestHeader | null
+/// }
+/// ```
+pub struct Headers;
+
+impl Headers {
+    fn create(headers: &[parser::Header], ctx: &mut Context) -> crate::Result<JsValue> {
+        let headers: Vec<_> = headers
+            .iter()
+            .map(|it| {
+                Header::create(&it.field_name, it.field_value.state.value(), ctx)
+                    .map(|h| (it.field_name.clone(), h))
+            })
+            .collect::<crate::Result<_>>()?;
+        let mut headers_obj = ObjectInitializer::new(ctx);
+        for (name, value) in headers {
+            headers_obj.property(name, value, Attribute::default());
+        }
+        let headers = headers_obj.build();
+
+        let mut obj = ObjectInitializer::new(ctx);
+        obj.property("__headers", headers, Attribute::default());
+        obj.function(
+            NativeFunction::from_fn_ptr(Self::find_by_name),
+            "findByName",
+            1,
+        );
+
+        Ok(JsValue::Object(obj.build()))
+    }
+
+    fn find_by_name(this: &JsValue, args: &[JsValue], ctx: &mut Context) -> JsResult<JsValue> {
+        if args.is_empty() {
+            return Err(JsNativeError::typ()
+                .with_message("invalid amount of arguments")
+                .into());
+        }
+        if let Some(name) = args[0].as_string() {
+            let h = this.as_object().cloned().unwrap();
+            let headers = h.get("__headers", ctx)?.as_object().cloned().unwrap();
+
+            if let Ok(header) = headers.get(name.clone(), ctx) {
+                if !header.is_null_or_undefined() {
+                    return Ok(header);
+                }
+            }
+        }
+
+        Ok(JsValue::Null)
+    }
+}
+
+/// Information about request header
+/// ```typescript
+/// interface RequestHeader {
+///     /**
+///      * Header name
+///      */
+///     name: string
+///     /**
+///      * Gets raw header value, without any substituted variable. So, all {{var}} parts will stay unchanged.
+///      */
+///     getRawValue(): string;
+///
+///     /**
+///      * Tries substitute known variables inside header value and returns the result. All known {{var}} will be replaced by theirs values.
+///      * Unknown {{var}} will stay unchanged.
+///      */
+///     tryGetSubstitutedValue(): string;
+/// }
+/// ```
+pub struct Header;
+
+impl Header {
+    pub fn create(name: &str, value: &str, ctx: &mut Context) -> crate::Result<JsValue> {
+        let mut obj = ObjectInitializer::new(ctx);
+        <Self as ResolvableInterface>::initialize(&mut obj, value);
+        obj.property("name", name, Attribute::default());
+
+        Ok(JsValue::Object(obj.build()))
+    }
+}
+
+impl ResolvableInterface for Header {}

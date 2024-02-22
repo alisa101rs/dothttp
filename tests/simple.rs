@@ -40,7 +40,11 @@ async fn test_simple_post() {
         .execute(FileSourceProvider::new("tests/requests/simple-post.http", Some(1)).unwrap())
         .await;
 
-    assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);
+    assert!(
+        result.is_ok(),
+        "Failed test:\n{}\nerror: {result:?}",
+        output.into_writer().0
+    );
 
     assert_eq!(server.requests().await.len(), 1);
 }

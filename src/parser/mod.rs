@@ -366,6 +366,15 @@ pub enum Unprocessed {
     WithoutInline(String, Selection),
 }
 
+impl Unprocessed {
+    pub fn value(&self) -> &str {
+        match self {
+            Unprocessed::WithInline { value, .. } => value,
+            Unprocessed::WithoutInline(value, _) => value,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct InlineScript {
     pub script: String,

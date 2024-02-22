@@ -172,22 +172,26 @@ impl ScriptEngine for BoaScriptEngine {
         handle(self, request_script, response)
     }
     fn resolve_request_variable(&mut self, name: &str) -> Result<String> {
-        let mut value = None;
-
-        value = value.or(RequestVariables::get_variable(name, &mut self.context));
-        value = value.or(VariableBlock::get_variable(name, &mut self.context));
-        value = value.or(Environment::get_variable(name, &mut self.context));
-
-        if let Some(value) = value {
-            return value
-                .to_string(&mut self.context)
-                .map(|it| it.to_std_string_escaped())
-                .map_err(map_js_error);
-        }
-
-        // `{{$name}}`
-        Ok(format!("{{{{{name}}}}}"))
+        resolve_request_variable(&mut self.context, name)
     }
+}
+
+fn resolve_request_variable(ctx: &mut Context, name: &str) -> Result<String> {
+    let mut value = None;
+
+    value = value.or(RequestVariables::get_variable(name, ctx));
+    value = value.or(VariableBlock::get_variable(name, ctx));
+    value = value.or(Environment::get_variable(name, ctx));
+
+    if let Some(value) = value {
+        return value
+            .to_string(ctx)
+            .map(|it| it.to_std_string_escaped())
+            .map_err(map_js_error);
+    }
+
+    // `{{$name}}`
+    Ok(format!("{{{{{name}}}}}"))
 }
 
 struct Environment;
