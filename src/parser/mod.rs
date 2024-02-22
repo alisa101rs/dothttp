@@ -458,14 +458,14 @@ impl File {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct Selection {
     pub filename: PathBuf,
     pub start: Position,
     pub end: Position,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct Position {
     pub line: usize,
     pub col: usize,

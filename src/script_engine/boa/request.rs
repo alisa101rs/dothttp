@@ -341,3 +341,118 @@ impl Header {
 }
 
 impl ResolvableInterface for Header {}
+
+#[cfg(test)]
+mod tests {
+    use boa_engine::{property::Attribute, Context, Source};
+
+    use crate::{
+        parser,
+        parser::InlineScript,
+        script_engine::boa::{
+            request::{Headers, ResolvableValue},
+            variables::VariableHolder,
+            Environment,
+        },
+    };
+
+    #[test]
+    fn resolvable_value() {
+        let mut ctx = Context::default();
+        Environment::register_holder(&mut ctx).unwrap();
+
+        let v = ResolvableValue::create("///{{test}}_{{test}}///", &mut ctx).unwrap();
+        ctx.register_global_property("value", v, Attribute::default())
+            .unwrap();
+
+        let result = ctx.eval(Source::from_bytes("value.getRaw()"));
+        assert!(result.is_ok());
+        assert_eq!(
+            result
+                .unwrap()
+                .to_string(&mut ctx)
+                .unwrap()
+                .to_std_string_escaped(),
+            "///{{test}}_{{test}}///"
+        );
+
+        Environment::set_variable("test", "123", &mut ctx).unwrap();
+        let result = ctx.eval(Source::from_bytes("value.tryGetSubstituted()"));
+        assert!(result.is_ok());
+        assert_eq!(
+            result
+                .unwrap()
+                .to_string(&mut ctx)
+                .unwrap()
+                .to_std_string_escaped(),
+            "///123_123///"
+        );
+    }
+
+    #[test]
+    fn headers() {
+        let mut ctx = Context::default();
+        Environment::register_holder(&mut ctx).unwrap();
+
+        let headers = vec![parser::Header {
+            field_name: "test".to_string(),
+            field_value: parser::Value {
+                state: parser::Unprocessed::WithInline {
+                    value: "{{test}}".to_string(),
+                    inline_scripts: vec![InlineScript {
+                        script: "test".to_string(),
+                        placeholder: "{{test}}".to_string(),
+                        selection: Default::default(),
+                    }],
+                    selection: Default::default(),
+                },
+            },
+            selection: parser::Selection::default(),
+        }];
+
+        let v = Headers::create(&headers, &mut ctx).unwrap();
+        ctx.register_global_property("headers", v, Attribute::default())
+            .unwrap();
+
+        let result = ctx.eval(Source::from_bytes("headers.findByName(\"test\")"));
+        assert!(result.is_ok());
+
+        Environment::set_variable("test", "123", &mut ctx).unwrap();
+        let result = ctx.eval(Source::from_bytes("headers.findByName(\"test\").name"));
+        assert!(result.is_ok());
+        assert_eq!(
+            result
+                .unwrap()
+                .to_string(&mut ctx)
+                .unwrap()
+                .to_std_string_escaped(),
+            "test"
+        );
+
+        let result = ctx.eval(Source::from_bytes(
+            "headers.findByName(\"test\").getRawValue()",
+        ));
+        assert!(result.is_ok());
+        assert_eq!(
+            result
+                .unwrap()
+                .to_string(&mut ctx)
+                .unwrap()
+                .to_std_string_escaped(),
+            "{{test}}"
+        );
+
+        let result = ctx.eval(Source::from_bytes(
+            "headers.findByName(\"test\").tryGetSubstitutedValue()",
+        ));
+        assert!(result.is_ok());
+        assert_eq!(
+            result
+                .unwrap()
+                .to_string(&mut ctx)
+                .unwrap()
+                .to_std_string_escaped(),
+            "123"
+        );
+    }
+}
