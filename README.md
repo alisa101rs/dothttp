@@ -19,7 +19,8 @@ Current list of feature support:
 - [x] Response handlers
 - [x] Response unit tests
 - [ ] Posting request bodies from files
-- [ ] Pre-request scripts
+- [x] Pre-request scripts
+- [x] Pre-request variables block
 - [ ] Cookies
 - [ ] gRPC requests
 - [ ] WebSocket requests
