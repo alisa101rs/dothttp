@@ -12,6 +12,15 @@ use pest_derive::Parser;
 
 use crate::Result;
 
+macro_rules! find_rule {
+    ($pairs: expr, $rule: pat) => {
+        $pairs.find_map(|pair| match pair.as_rule() {
+            $rule => Some(pair),
+            _ => None,
+        })
+    };
+}
+
 #[derive(Parser)]
 #[grammar = "parser/parser.pest"]
 struct ScriptParser;
@@ -106,9 +115,13 @@ impl FromPair for Method {
 impl FromPair for Value {
     fn from_pair(filename: PathBuf, pair: Pair<'_, Rule>) -> Self {
         match (pair.as_rule(), pair.as_str()) {
-            (Rule::request_target, string)
-            | (Rule::field_value, string)
-            | (Rule::request_body, string) => {
+            (
+                Rule::request_target
+                | Rule::field_value
+                | Rule::request_body
+                | Rule::request_variable_value,
+                string,
+            ) => {
                 let selection = pair.as_span().to_selection(filename.clone());
                 let inline_scripts = pair
                     .into_inner()
@@ -159,20 +172,17 @@ impl FromPair for Header {
             Rule::header_field => {
                 let selection = pair.as_span().to_selection(filename.clone());
                 let mut pairs = pair.into_inner();
+                let field_name = find_rule!(pairs, Rule::field_name)
+                    .unwrap()
+                    .as_str()
+                    .to_owned();
+                let field_value = find_rule!(pairs, Rule::field_value).unwrap();
+                let field_value = Value::from_pair(filename.clone(), field_value);
+
                 Header {
                     selection,
-                    field_name: pairs
-                        .find_map(|pair| match pair.as_rule() {
-                            Rule::field_name => Some(pair.as_str().to_string()),
-                            _ => None,
-                        })
-                        .unwrap(),
-                    field_value: pairs
-                        .find_map(|pair| match pair.as_rule() {
-                            Rule::field_value => Some(Value::from_pair(filename.clone(), pair)),
-                            _ => None,
-                        })
-                        .unwrap(),
+                    field_name,
+                    field_value,
                 }
             }
             _ => invalid_pair(Rule::header_field, pair.as_rule()),
@@ -237,6 +247,15 @@ impl FromPair for RequestScript {
                         .and_then(|it| if it.is_empty() { None } else { Some(it) })
                 },
                 selection: pair.as_span().to_selection(filename.clone()),
+                request_variables: {
+                    let declarations = find_rule!(
+                        pair.clone().into_inner(),
+                        Rule::request_variable_declarations
+                    );
+                    declarations
+                        .map(|it| request_variable_declaration_from_pair(filename.clone(), it))
+                        .unwrap_or_else(Vec::new)
+                },
                 pre_request_handler: {
                     let mut pairs = pair.clone().into_inner();
                     let pair = pairs.find_map(|pair| match pair.as_rule() {
@@ -258,6 +277,25 @@ impl FromPair for RequestScript {
             _ => invalid_pair(Rule::request_script, pair.as_rule()),
         }
     }
+}
+
+fn request_variable_declaration_from_pair(
+    filename: PathBuf,
+    pair: Pair<'_, Rule>,
+) -> Vec<(String, Value)> {
+    let mut output = vec![];
+    let declarations = pair.into_inner();
+
+    for declaration in declarations {
+        let mut declaration = declaration.into_inner();
+        let name = declaration.next().expect("request_variable_name");
+        let name = name.as_str().to_owned();
+        let value = declaration.next().expect("request_variable_value");
+        let value = Value::from_pair(filename.clone(), value);
+        output.push((name, value));
+    }
+
+    output
 }
 
 impl FromPair for File {
@@ -328,6 +366,15 @@ pub enum Unprocessed {
     WithoutInline(String, Selection),
 }
 
+impl Unprocessed {
+    pub fn value(&self) -> &str {
+        match self {
+            Unprocessed::WithInline { value, .. } => value,
+            Unprocessed::WithoutInline(value, _) => value,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct InlineScript {
     pub script: String,
@@ -344,6 +391,7 @@ pub struct File {
 pub struct RequestScript {
     pub name: Option<String>,
     pub request: Request,
+    pub request_variables: Vec<(String, Value)>,
     pub pre_request_handler: Option<Handler>,
     pub handler: Option<Handler>,
     pub selection: Selection,
@@ -410,14 +458,14 @@ impl File {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct Selection {
     pub filename: PathBuf,
     pub start: Position,
     pub end: Position,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct Position {
     pub line: usize,
     pub col: usize,

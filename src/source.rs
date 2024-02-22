@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use anyhow::Context;
+use color_eyre::eyre::Context;
 
 use crate::{
     parser::{parse, File, RequestScript},

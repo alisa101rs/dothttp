@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context};
+use color_eyre::eyre::{anyhow, Context};
 use serde_json::Value;
 
 pub trait EnvironmentProvider {

@@ -1,13 +1,16 @@
 CRLF    = _{ "\r\n" | "\n" | "\r" }
 COMMENT = _{ !request_separator ~ "#" ~ (!CRLF ~ ANY)* ~ CRLF }
 SP      = _{ " " }
+ALPHA   = _{ 'a'..'z' | 'A'..'Z' }
+DIGIT   = _{ '0'..'9' }
+IDENT   = _{ !DIGIT ~ (ALPHA | DIGIT | "_"){1, } }
 
-url_string = _{ (inline_script | (CRLF ~ SP{1, } ~ url_multiline_item) | url_singleline_item )* }
+url_string          = _{ (inline_script | (CRLF ~ SP{1, } ~ url_multiline_item) | url_singleline_item)* }
 url_singleline_item = _{ !(SP{1, } ~ http_version) ~ !CRLF ~ ANY }
-url_multiline_item = _{ !http_version ~ !CRLF ~ ANY }
+url_multiline_item  = _{ !http_version ~ !CRLF ~ ANY }
 
-token      = _{ (tchar | inline_script)* }
-tchar      = _{ "!" | "#" | "$" | "%" | "&" | "'" | "*" | "+" | "-" | "." | "^" | "_" | "`" | "|" | "~" | ASCII_ALPHANUMERIC }
+token = _{ (tchar | inline_script)* }
+tchar = _{ "!" | "#" | "$" | "%" | "&" | "'" | "*" | "+" | "-" | "." | "^" | "_" | "`" | "|" | "~" | ASCII_ALPHANUMERIC }
 
 plain_request_separator     = _{ "###" }
 request_separator_with_name =  { plain_request_separator ~ (!CRLF ~ ANY)* }
@@ -16,7 +19,7 @@ request_separator           = _{ request_separator_with_name | plain_request_sep
 handler_script_string           =  { handler_script_string_character* }
 handler_script_string_character = _{ !handler_script_end ~ !"{%" ~ ANY }
 handler_script_start            = _{ "> {%" ~ (SP | CRLF)* }
-pre_handler_script_start            = _{ "< {%" ~ (SP | CRLF)* }
+pre_handler_script_start        = _{ "< {%" ~ (SP | CRLF)* }
 handler_script_end              = _{ (SP | CRLF)* ~ "%}" }
 
 inline_script                  =  { "{{" ~ SP* ~ inline_script_string ~ inline_script_end }
@@ -24,12 +27,16 @@ inline_script_string           =  { inline_script_string_character* }
 inline_script_string_character = _{ !inline_script_end ~ !"{{" ~ ANY }
 inline_script_end              = _{ SP* ~ "}}" }
 
-request_script   =  { request_separator? ~ CRLF* ~ pre_request_handler? ~ CRLF* ~ request ~ CRLF* ~ request_body? ~ response_handler? }
-request_body     =  { (!request_separator ~ !handler_script_start ~ !EOI ~ (inline_script | ANY))+ }
+request_script = { request_separator? ~ CRLF* ~ request_variable_declarations? ~ CRLF* ~ pre_request_handler? ~ CRLF* ~ request ~ CRLF* ~ request_body? ~ response_handler? }
+request_body   = { (!request_separator ~ !handler_script_start ~ !EOI ~ (inline_script | ANY))+ }
 
 pre_request_handler = ${ !request_separator ~ pre_handler_script_start ~ handler_script_string ~ handler_script_end }
-response_handler = ${ !request_separator ~ handler_script_start ~ handler_script_string ~ handler_script_end }
+response_handler    = ${ !request_separator ~ handler_script_start ~ handler_script_string ~ handler_script_end }
 
+request_variable_name         = { IDENT }
+request_variable_value        = { (!CRLF ~ (inline_script | ANY))* }
+request_variable_declaration  = { "@" ~ request_variable_name ~ SP* ~ "=" ~ SP* ~ request_variable_value ~ CRLF }
+request_variable_declarations = { (request_variable_declaration ~ CRLF*)+ }
 
 request = _{ request_line ~ CRLF ~ (header_field ~ (CRLF | EOI))* }
 

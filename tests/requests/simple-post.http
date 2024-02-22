@@ -1,5 +1,10 @@
 ### test_simple_post
 
+< {%
+    let body = JSON.parse(request.body.tryGetSubstituted());
+    client.log(`body=${body["value"]}`);
+%}
+
 POST http://{{host}}/post
 my-header: {{variable}}
 Content-Type: application/json

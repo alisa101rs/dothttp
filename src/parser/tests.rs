@@ -7,6 +7,7 @@ fn script_parser_parse() {
 # Comment 1
 # Comment 2
 # Comment 3
+@variable=value
 GET http://{{host}}.com HTTP/1.1
 Accept: *#/*
 # Commented Header
@@ -44,6 +45,7 @@ Accept: */*
     assert_eq!(
         request_script.as_str(),
         "\
+@variable=value
 GET http://{{host}}.com HTTP/1.1
 Accept: *#/*
 # Commented Header
@@ -59,6 +61,9 @@ Content-Type: {{ content_type }}
     );
 
     let mut request_script_parts = request_script.into_inner();
+
+    let request_variable_declarations = request_script_parts.next().unwrap();
+    assert_eq!(request_variable_declarations.as_str(), "@variable=value\n");
 
     let method = request_script_parts.next().unwrap();
 
@@ -234,6 +239,21 @@ fn response_handler() {
 }
 
 #[test]
+fn pre_request_handler() {
+    let test = "\
+< {%
+ console.log('hi');
+%}
+";
+    let handler = ScriptParser::parse(Rule::pre_request_handler, test);
+    if let Err(e) = &handler {
+        println!("{:?}", e);
+    }
+
+    assert!(handler.is_ok());
+}
+
+#[test]
 fn response_handler_with_comment() {
     let test = "\
 POST http://httpbin.org/post
@@ -309,4 +329,106 @@ fn multiline_request_line() {
         .replace(|c: char| c.is_whitespace(), "");
     assert_eq!(&uri, "https://httpbin.org/get?request=2");
     assert!(pairs.next().is_none())
+}
+
+#[test]
+fn request_variable_declarations() {
+    let test = "\
+@a=y
+@b = ywae
+@c = \"w\"
+@d = {{x}} + y
+";
+    let handler = ScriptParser::parse(Rule::request_variable_declarations, test);
+    if let Err(e) = &handler {
+        println!("{:?}", e);
+    }
+
+    assert!(handler.is_ok());
+    let pairs =
+        request_variable_declaration_from_pair("/".into(), handler.unwrap().next().unwrap());
+
+    assert_eq!(pairs.len(), 4);
+}
+
+#[test]
+fn request_with_variables_and_pre_request_handler() {
+    let test = "\
+@var = {{variable}} + 1
+# comment
+@w = y
+
+@variable2 = {{var}} + 1
+#comment
+< {%
+    client.log(\"hello\");
+%}
+# Comment
+
+GET http://{{host}}/get?value=10
+my-header: {{variable2}}
+
+> {%
+    client.log(\"world\");
+%}
+
+";
+    let files = ScriptParser::parse(Rule::file, test);
+    if let Err(e) = &files {
+        println!("{}", e);
+    }
+    assert!(files.is_ok());
+    let mut files = files.unwrap();
+    let file = files.next().unwrap();
+    let mut request_scripts = file.into_inner();
+
+    let mut request_script = request_scripts.next().unwrap().into_inner();
+
+    let variable_declarations = request_script.next().unwrap();
+    let variable_declarations =
+        request_variable_declaration_from_pair("/".into(), variable_declarations);
+    assert_eq!(variable_declarations.len(), 3);
+    let pre_request_handler = request_script.next().unwrap();
+    assert_eq!(
+        pre_request_handler.into_inner().next().unwrap().as_str(),
+        "client.log(\"hello\");"
+    );
+    let method = request_script.next().unwrap();
+    assert_eq!(method.as_str(), "GET");
+    let target = request_script.next().unwrap();
+    assert_eq!(target.as_str(), "http://{{host}}/get?value=10");
+
+    let my_header = request_script.next().unwrap();
+    assert_eq!(my_header.as_str(), "my-header: {{variable2}}");
+    let response_handler = request_script.next().unwrap();
+    assert_eq!(
+        response_handler.into_inner().next().unwrap().as_str(),
+        "client.log(\"world\");"
+    );
+    assert_eq!(request_script.next(), None);
+}
+
+#[test]
+fn correct_field_value() {
+    let test = "{{ x }} + x + {{y  }}";
+    let rule = ScriptParser::parse(Rule::field_value, test)
+        .unwrap()
+        .next()
+        .unwrap();
+
+    let value = Value::from_pair("/".into(), rule);
+
+    let Unprocessed::WithInline {
+        value,
+        inline_scripts,
+        ..
+    } = value.state
+    else {
+        panic!("Invalid state")
+    };
+
+    assert_eq!(inline_scripts.len(), 2);
+    assert_eq!(inline_scripts[0].script, "x");
+    assert_eq!(inline_scripts[1].script, "y");
+    assert_eq!(value, test);
 }

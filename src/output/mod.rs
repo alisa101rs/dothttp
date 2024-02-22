@@ -5,7 +5,7 @@ mod tests;
 
 use std::fmt;
 
-use anyhow::anyhow;
+use color_eyre::eyre::anyhow;
 
 use crate::{
     http::{Method, Request, Response},
