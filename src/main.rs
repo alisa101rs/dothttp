@@ -30,40 +30,28 @@ struct Args {
 
     /// The format of the request output. Only relevant if `-format=standard`.
     ///
-    /// Possible values:
-    ///
-    /// * %R - HTTP protocol
-    ///
-    /// * %N - Request Name
-    ///
-    /// * %B - Request Body
-    ///
-    /// * %H - Request Headers
+    /// [possible values:
+    /// %R - HTTP protocol,
+    /// %N - request Name,
+    /// %B - request Body,
+    /// %H - request Headers]
     #[arg(long, default_value = "%N\n%R\n\n")]
     request_format: String,
 
     /// The format of the response output. Only relevant if `-format=standard`.
     ///
-    /// Possible values:
-    ///
-    /// * %R - HTTP protocol
-    ///
-    /// * %T - Response unit tests
-    ///
-    /// * %B - Response Body
-    ///
-    /// * %H - Response Headers
+    /// [possible values:
+    /// %R - HTTP protocol,
+    /// %T - Response unit tests,
+    /// %B - Response Body,
+    /// %H - Response Headers]
     #[arg(long, default_value = "%R\n%H\n%B\n\n%T\n")]
     response_format: String,
 
     #[arg(long = "accept-invalid-certs")]
     accept_invalid_cert: bool,
 
-    /// Which mode to use to print result. Possible values:
-    ///
-    /// * standard [default]
-    ///
-    /// * ci
+    /// Which mode to use to print result.
     #[arg(long = "format", default_value = "standard")]
     format: FormatType,
 }
