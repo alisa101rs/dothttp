@@ -19,11 +19,11 @@ impl<'a> Executor<'a> {
     }
 
     fn request_name(&self) -> String {
-        if let Some(name) = &self.source.script.name {
-            format!("{} / {name}", self.source.name)
-        } else {
-            format!("{} / #{}", self.source.name, self.source.index + 1)
-        }
+        format!(
+            "{} / {}",
+            self.source.source_name(),
+            self.source.request_name()
+        )
     }
 
     fn process_variables(&self, engine: &mut impl ScriptEngine) -> Result<()> {
@@ -134,11 +134,11 @@ impl<'a> Executor<'a> {
         engine.report().context("failed to get test report")
     }
 
-    pub(crate) async fn execute(
+    pub(crate) async fn execute<O: Output + ?Sized>(
         &mut self,
         client: &impl HttpClient,
         engine: &mut impl ScriptEngine,
-        output: &mut impl Output,
+        output: &mut O,
     ) -> Result<(String, TestsReport)> {
         let name = self.request_name();
         self.process_variables(engine)?;

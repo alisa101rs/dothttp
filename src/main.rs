@@ -1,9 +1,12 @@
-use std::{borrow::BorrowMut, io::stdout, path::PathBuf};
+use std::{
+    io::{stderr, stdout},
+    path::PathBuf,
+};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use color_eyre::Result;
 use dothttp::{
-    output::{parse_format, print::FormattedOutput},
+    output::{parse_format, print::FormattedOutput, CiOutput, Output},
     source::FilesSourceProvider,
     ClientConfig, EnvironmentFileProvider, Runtime,
 };
@@ -25,40 +28,43 @@ struct Args {
 
     files: Vec<String>,
 
-    /// The format of the request output
+    /// The format of the request output. Only relevant if `-format=standard`.
     ///
-    /// Possible values:
-    ///
-    /// * %R - HTTP protocol
-    ///
-    /// * %N - Request Name
-    ///
-    /// * %B - Request Body
-    ///
-    /// * %H - Request Headers
+    /// [possible values:
+    /// %R - HTTP protocol,
+    /// %N - request Name,
+    /// %B - request Body,
+    /// %H - request Headers]
     #[arg(long, default_value = "%N\n%R\n\n")]
     request_format: String,
 
-    /// The format of the response output
+    /// The format of the response output. Only relevant if `-format=standard`.
     ///
-    /// Possible values:
-    ///
-    /// * %R - HTTP protocol
-    ///
-    /// * %T - Response unit tests
-    ///
-    /// * %B - Response Body
-    ///
-    /// * %H - Response Headers
+    /// [possible values:
+    /// %R - HTTP protocol,
+    /// %T - Response unit tests,
+    /// %B - Response Body,
+    /// %H - Response Headers]
     #[arg(long, default_value = "%R\n%H\n%B\n\n%T\n")]
     response_format: String,
 
     #[arg(long = "accept-invalid-certs")]
     accept_invalid_cert: bool,
+
+    /// Which mode to use to print result.
+    #[arg(long = "format", default_value = "standard")]
+    format: FormatType,
+}
+
+#[derive(Debug, Default, Copy, Clone, ValueEnum)]
+enum FormatType {
+    #[default]
+    Standard,
+    Ci,
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<()> {
+async fn main() -> Result<std::process::ExitCode> {
     color_eyre::install()?;
 
     let Args {
@@ -69,6 +75,7 @@ async fn main() -> Result<()> {
         accept_invalid_cert,
         request_format,
         response_format,
+        format: output,
     } = Args::parse();
 
     let env = environment.unwrap_or("dev".to_owned());
@@ -78,19 +85,32 @@ async fn main() -> Result<()> {
 
     let client_config = ClientConfig::new(!ignore_certificates);
 
-    let mut stdout = stdout();
-    let mut output = FormattedOutput::new(
-        stdout.borrow_mut(),
-        parse_format(&preprocess_format_strings(request_format))?,
-        parse_format(&preprocess_format_strings(response_format))?,
-    );
+    let mut output = get_output(output, request_format, response_format)?;
     let mut environment = EnvironmentFileProvider::open(&env, &env_file, &snapshot_file)?;
 
-    let mut runtime = Runtime::new(&mut environment, output.borrow_mut(), client_config).unwrap();
+    let mut runtime = Runtime::new(&mut environment, &mut output, client_config).unwrap();
 
     runtime
         .execute(FilesSourceProvider::from_list(&files)?)
-        .await
+        .await?;
+
+    Ok(output.exit_code())
+}
+
+fn get_output(
+    ty: FormatType,
+    request_format: String,
+    response_format: String,
+) -> Result<Box<dyn Output>> {
+    Ok(match ty {
+        FormatType::Standard => Box::new(FormattedOutput::new(
+            stdout(),
+            stderr(),
+            parse_format(&preprocess_format_strings(request_format))?,
+            parse_format(&preprocess_format_strings(response_format))?,
+        )),
+        FormatType::Ci => Box::new(CiOutput::default()),
+    })
 }
 
 fn preprocess_format_strings(format: String) -> String {

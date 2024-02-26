@@ -1,4 +1,4 @@
-use std::{fmt, io::Write};
+use std::{fmt, io::Write, process::ExitCode};
 
 use crate::{
     http,
@@ -7,27 +7,32 @@ use crate::{
     Result,
 };
 
-pub struct FormattedOutput<W: Write> {
-    writer: W,
+pub struct FormattedOutput<W1: Write, W2: Write> {
+    writer: W1,
+    writer_err: W2,
     request_format: Vec<FormatItem>,
     response_format: Vec<FormatItem>,
+    error: bool,
 }
 
-impl<W: Write> FormattedOutput<W> {
+impl<W1: Write, W2: Write> FormattedOutput<W1, W2> {
     pub fn new(
-        writer: W,
+        writer: W1,
+        writer_err: W2,
         request_format: Vec<FormatItem>,
         response_format: Vec<FormatItem>,
-    ) -> FormattedOutput<W> {
+    ) -> FormattedOutput<W1, W2> {
         FormattedOutput {
             writer,
+            writer_err,
             request_format,
             response_format,
+            error: false,
         }
     }
 
-    pub fn into_writer(self) -> W {
-        self.writer
+    pub fn into_writers(self) -> (W1, W2) {
+        (self.writer, self.writer_err)
     }
 }
 
@@ -65,7 +70,7 @@ fn format_tests(report: &TestsReport) -> String {
     output
 }
 
-impl<W: Write> Output for FormattedOutput<W> {
+impl<W1: Write, W2: Write> Output for FormattedOutput<W1, W2> {
     fn response(&mut self, response: &http::Response, tests: &TestsReport) -> Result<()> {
         if self.response_format.is_empty() {
             return Ok(());
@@ -95,6 +100,9 @@ impl<W: Write> Output for FormattedOutput<W> {
 
             write!(self.writer, "{to_write}")?;
         }
+
+        self.error = self.error || tests.failed().next().is_some();
+
         Ok(())
     }
 
@@ -127,6 +135,39 @@ impl<W: Write> Output for FormattedOutput<W> {
             write!(self.writer, "{to_write}")?;
         }
         Ok(())
+    }
+
+    fn tests(&mut self, tests: Vec<(String, String, TestsReport)>) -> Result<()> {
+        if !self.error {
+            return Ok(());
+        }
+
+        let mut index = 1;
+
+        writeln!(self.writer_err, "RUN FAILED")?;
+
+        for (file, name, tests) in tests {
+            for (test, result) in tests.failed() {
+                let TestResult::Error { error } = result else {
+                    panic!("tests.failed() should return only failed tests")
+                };
+                writeln!(
+                    self.writer_err,
+                    "{index}. Test `{test}` in `[{file} / {name}]` FAILED with {error}"
+                )?;
+                index += 1;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn exit_code(&mut self) -> ExitCode {
+        if self.error {
+            ExitCode::FAILURE
+        } else {
+            ExitCode::SUCCESS
+        }
     }
 }
 

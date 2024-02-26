@@ -17,7 +17,11 @@ async fn multi_post() {
         .execute(FileSourceProvider::new("tests/requests/multi.http", None).unwrap())
         .await;
 
-    assert!(result.is_ok(), "Failed test:\n{}", output.into_writer().0);
+    assert!(
+        result.is_ok(),
+        "Failed test:\n{}",
+        output.into_writers().1 .0
+    );
 
     assert_eq!(server.requests().await.len(), 3);
 

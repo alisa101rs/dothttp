@@ -7,21 +7,39 @@ use crate::{
     Result,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct SourceItem<'a> {
     pub name: &'a str,
     pub index: usize,
     pub script: &'a RequestScript,
 }
 
+impl SourceItem<'_> {
+    pub fn source_name(&self) -> &str {
+        self.name
+    }
+
+    pub fn request_name(&self) -> String {
+        if let Some(name) = &self.script.name {
+            name.clone()
+        } else {
+            format!("#{}", self.index + 1)
+        }
+    }
+}
+
 pub trait SourceProvider {
     fn requests(&mut self) -> impl Iterator<Item = SourceItem>;
 }
 
-pub struct FileSourceProvider(File, String, Option<usize>);
+pub struct FileSourceProvider {
+    file: File,
+    name: String,
+    request_index: Option<usize>,
+}
 
 impl FileSourceProvider {
-    pub fn new(file: impl AsRef<Path>, request: Option<usize>) -> Result<Self> {
+    pub fn new(file: impl AsRef<Path>, request_index: Option<usize>) -> Result<Self> {
         let name = file.as_ref().display().to_string();
 
         let file_contents = fs::read_to_string(&file)
@@ -30,16 +48,20 @@ impl FileSourceProvider {
         let file = parse(file.as_ref().to_path_buf(), file_contents.as_str())
             .with_context(|| format!("Failed parsing file: `{}`", name))?;
 
-        Ok(Self(file, name, request))
+        Ok(Self {
+            file,
+            name,
+            request_index,
+        })
     }
 }
 
 impl SourceProvider for FileSourceProvider {
     fn requests(&mut self) -> impl Iterator<Item = SourceItem> {
-        self.0
-            .request_scripts(self.2)
+        self.file
+            .request_scripts(self.request_index)
             .map(|(index, script)| SourceItem {
-                name: &self.1,
+                name: &self.name,
                 index,
                 script,
             })

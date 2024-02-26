@@ -20,7 +20,7 @@ async fn test_simple_get() {
     assert!(
         result.is_ok(),
         "Failed test:\n{}\nerror: {:?}",
-        output.into_writer().0,
+        output.into_writers().1 .0,
         result.unwrap_err()
     );
 
@@ -43,7 +43,7 @@ async fn test_simple_post() {
     assert!(
         result.is_ok(),
         "Failed test:\n{}\nerror: {result:?}",
-        output.into_writer().0
+        output.into_writers().1 .0
     );
 
     assert_eq!(server.requests().await.len(), 1);

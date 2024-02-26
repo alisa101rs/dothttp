@@ -29,6 +29,7 @@ rand = "0.8.5"
 chrono = "0.4.31"
 tokio = { version = "1", features = ["net", "macros"] }
 http = "1.0.0"
+ascii_table = "4.0.3"
 
 [dev-dependencies]
 axum = "0.7.4"
