@@ -40,7 +40,7 @@ impl ClientConfig {
     }
 }
 
-pub struct Runtime<'a, E, O> {
+pub struct Runtime<'a, E, O: ?Sized> {
     engine: BoaScriptEngine,
     environment: &'a mut E,
     output: &'a mut O,
@@ -50,7 +50,7 @@ pub struct Runtime<'a, E, O> {
 impl<'a, E, O> Runtime<'a, E, O>
 where
     E: EnvironmentProvider,
-    O: Output,
+    O: Output + ?Sized,
 {
     pub fn new(environment: &'a mut E, output: &'a mut O, config: ClientConfig) -> Result<Self> {
         let engine = create_script_engine(environment)?;
@@ -65,21 +65,27 @@ where
     }
 
     pub async fn execute(&mut self, mut source_provider: impl SourceProvider) -> Result<()> {
-        let mut errors = vec![];
-
         let engine = &mut self.engine;
         let output = self.output.borrow_mut();
         let client = &self.client;
 
+        let mut files_requests_tests = vec![];
+
         for source in source_provider.requests() {
-            let (name, report) = Executor::new(source)
+            let (_, report) = Executor::new(source)
                 .execute(client, engine, output)
                 .await?;
 
-            errors.extend(report.failed().map(|(k, _)| (name.clone(), k.clone())));
+            files_requests_tests.push((
+                source.source_name().to_owned(),
+                source.request_name(),
+                report,
+            ));
 
-            engine.reset().unwrap();
+            engine.reset()?;
         }
+
+        output.tests(files_requests_tests)?;
 
         let snapshot = engine
             .snapshot()
@@ -89,23 +95,6 @@ where
             .save(&snapshot)
             .with_context(|| "Error writing snapshot")?;
 
-        if !errors.is_empty() {
-            return Err(produce_error(errors));
-        }
         Ok(())
     }
-}
-
-fn produce_error(errors: Vec<(String, String)>) -> Report {
-    let reports = errors
-        .into_iter()
-        .map(|(request, test)| Report::msg(format!("{request}: {test}")))
-        .collect::<Vec<_>>();
-
-    let mut reports = reports.into_iter().rev();
-    let first = reports.next().unwrap();
-
-    let chain = reports.fold(first, |acc, next| acc.wrap_err(next));
-
-    Report::wrap_err(chain, "Some of the unit tests failed")
 }

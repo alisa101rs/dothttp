@@ -15,10 +15,12 @@ use http::header::CONTENT_TYPE;
 use serde_json::json;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
-pub fn formatter() -> FormattedOutput<DebugWriter> {
+pub fn formatter() -> FormattedOutput<DebugWriter, DebugWriter> {
     let writer = DebugWriter(String::new());
+    let writer_err = DebugWriter(String::new());
     FormattedOutput::new(
         writer,
+        writer_err,
         parse_format("%R\n").unwrap(),
         parse_format("%R\n%H\n%B\n%T\n").unwrap(),
     )

@@ -1,5 +1,6 @@
 pub mod print;
 
+mod ci;
 #[cfg(test)]
 mod tests;
 
@@ -7,6 +8,7 @@ use std::fmt;
 
 use color_eyre::eyre::anyhow;
 
+pub use self::{ci::CiOutput, print::FormattedOutput};
 use crate::{
     http::{Method, Request, Response},
     script_engine::report::TestsReport,
@@ -72,6 +74,29 @@ fn prettify_response_body(body: &str) -> String {
 pub trait Output {
     fn response(&mut self, response: &Response, tests: &TestsReport) -> Result<()>;
     fn request(&mut self, request: &Request, request_name: &str) -> Result<()>;
+    fn tests(&mut self, tests: Vec<(String, String, TestsReport)>) -> Result<()>;
+
+    fn exit_code(&mut self) -> std::process::ExitCode {
+        std::process::ExitCode::SUCCESS
+    }
+}
+
+impl Output for Box<dyn Output> {
+    fn response(&mut self, response: &Response, tests: &TestsReport) -> Result<()> {
+        (**self).response(response, tests)
+    }
+
+    fn request(&mut self, request: &Request, request_name: &str) -> Result<()> {
+        (**self).request(request, request_name)
+    }
+
+    fn tests(&mut self, tests: Vec<(String, String, TestsReport)>) -> Result<()> {
+        (**self).tests(tests)
+    }
+
+    fn exit_code(&mut self) -> std::process::ExitCode {
+        (**self).exit_code()
+    }
 }
 
 impl fmt::Display for Method {
