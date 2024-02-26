@@ -114,14 +114,7 @@ impl BoaScriptEngine {
 
 impl ScriptEngine for BoaScriptEngine {
     fn execute_script(&mut self, script: &Script) -> Result<String> {
-        match self
-            .context
-            .eval(Source::from_bytes(script.src))
-            .and_then(|value| value.to_string(&mut self.context))
-        {
-            Ok(r) => Ok(r.to_std_string_escaped()),
-            Err(er) => Err(anyhow!("Error executing script: {er}")),
-        }
+        execute_script(&mut self.context, script.src)
     }
 
     fn empty(&self) -> String {
@@ -176,7 +169,21 @@ impl ScriptEngine for BoaScriptEngine {
     }
 }
 
+fn execute_script(ctx: &mut Context, source: &str) -> Result<String> {
+    match ctx
+        .eval(Source::from_bytes(source))
+        .and_then(|value| value.to_string(ctx))
+    {
+        Ok(r) => Ok(r.to_std_string_escaped()),
+        Err(er) => Err(anyhow!("Error executing script: {er}")),
+    }
+}
+
 fn resolve_request_variable(ctx: &mut Context, name: &str) -> Result<String> {
+    if name.starts_with('$') {
+        return execute_script(ctx, name);
+    }
+
     let mut value = None;
 
     value = value.or(RequestVariables::get_variable(name, ctx));

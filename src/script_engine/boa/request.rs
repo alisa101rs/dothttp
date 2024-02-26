@@ -350,6 +350,7 @@ mod tests {
         parser,
         parser::InlineScript,
         script_engine::boa::{
+            random::Random,
             request::{Headers, ResolvableValue},
             variables::VariableHolder,
             Environment,
@@ -454,5 +455,51 @@ mod tests {
                 .to_std_string_escaped(),
             "123"
         );
+    }
+
+    #[test]
+    fn resolvable_value_with_special() {
+        let mut ctx = Context::default();
+        Environment::register_holder(&mut ctx).unwrap();
+
+        let v = ResolvableValue::create("{{ $random.integer }}", &mut ctx).unwrap();
+        ctx.register_global_property("value", v, Attribute::default())
+            .unwrap();
+
+        let result = ctx.eval(Source::from_bytes("value.getRaw()"));
+        assert!(result.is_ok());
+        assert_eq!(
+            result
+                .unwrap()
+                .to_string(&mut ctx)
+                .unwrap()
+                .to_std_string_escaped(),
+            "{{ $random.integer }}"
+        );
+
+        let result = ctx.eval(Source::from_bytes("value.tryGetSubstituted()"));
+        assert!(result.is_ok());
+        assert!(result
+            .clone()
+            .unwrap()
+            .to_string(&mut ctx)
+            .unwrap()
+            .to_std_string_escaped()
+            .parse::<i32>()
+            .is_err(),);
+
+        let random = Random::create(&mut ctx).unwrap();
+        ctx.register_global_property("$random", random, Attribute::default())
+            .unwrap();
+        let result = ctx.eval(Source::from_bytes("value.tryGetSubstituted()"));
+        assert!(result.is_ok());
+        assert!(result
+            .clone()
+            .unwrap()
+            .to_string(&mut ctx)
+            .unwrap()
+            .to_std_string_escaped()
+            .parse::<i32>()
+            .is_ok(),);
     }
 }

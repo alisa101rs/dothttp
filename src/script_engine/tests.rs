@@ -2,7 +2,9 @@ use serde_json::json;
 
 use crate::{
     http::{Response, Version},
-    script_engine::{create_script_engine, inject, Script, ScriptEngine},
+    script_engine::{
+        create_script_engine, inject, InlineScript, Script, ScriptEngine, Unprocessed, Value,
+    },
     StaticEnvironmentProvider,
 };
 
@@ -100,4 +102,27 @@ fn test_headers_available_in_response() {
         .unwrap();
 
     assert_eq!("SomeTokenValue", result);
+}
+
+#[test]
+fn test_special_variables() {
+    let mut env = StaticEnvironmentProvider::new(json!({}));
+    let mut engine = create_script_engine(&mut env).unwrap();
+
+    let value = Value {
+        state: Unprocessed::WithInline {
+            value: "{{ $random.integer }}".to_string(),
+            inline_scripts: vec![InlineScript {
+                script: "$random.integer".to_string(),
+                placeholder: "{{ $random.integer }}".to_string(),
+                selection: Default::default(),
+            }],
+            selection: Default::default(),
+        },
+    };
+
+    let result = engine.process(value);
+
+    assert!(result.is_ok());
+    assert!(result.unwrap().state.value.parse::<i32>().is_ok());
 }
