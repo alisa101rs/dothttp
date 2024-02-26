@@ -24,20 +24,22 @@ impl Output for CiOutput {
 
     fn tests(&mut self, tests: Vec<(String, String, TestsReport)>) -> crate::Result<()> {
         let mut ascii_table = AsciiTable::default();
+        ascii_table.set_max_width(256);
         ascii_table
             .column(0)
             .set_header("File")
-            .set_align(Align::Center);
+            .set_align(Align::Left);
         ascii_table
             .column(1)
             .set_header("Request")
-            .set_align(Align::Center);
+            .set_align(Align::Left);
         ascii_table
             .column(2)
             .set_header("Test")
-            .set_align(Align::Center);
+            .set_align(Align::Left);
         ascii_table
             .column(3)
+            .set_max_width(6)
             .set_header("Result")
             .set_align(Align::Center);
 
