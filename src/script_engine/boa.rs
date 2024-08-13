@@ -3,8 +3,6 @@ mod random;
 mod request;
 mod variables;
 
-use std::convert::From;
-
 use boa_engine::{property::Attribute, Context, JsError, JsValue, Source};
 use client::Client;
 use color_eyre::eyre::{anyhow, Context as _};
@@ -115,10 +113,6 @@ impl BoaScriptEngine {
 impl ScriptEngine for BoaScriptEngine {
     fn execute_script(&mut self, script: &Script) -> Result<String> {
         execute_script(&mut self.context, script.src)
-    }
-
-    fn empty(&self) -> String {
-        String::from("{}")
     }
 
     fn reset(&mut self) -> Result<()> {

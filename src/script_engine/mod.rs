@@ -28,6 +28,7 @@ pub struct Processed {
 }
 
 #[derive(Debug)]
+#[allow(unused)]
 pub enum Unprocessed {
     WithInline {
         value: String,
@@ -38,9 +39,11 @@ pub enum Unprocessed {
 }
 
 #[derive(Debug)]
+
 pub struct InlineScript {
     pub script: String,
     pub placeholder: String,
+    #[allow(unused)]
     pub selection: Selection,
 }
 
@@ -49,6 +52,7 @@ pub fn create_script_engine(environment: &mut dyn EnvironmentProvider) -> Result
 }
 
 pub struct Script<'a> {
+    #[allow(unused)]
     pub selection: Selection,
     pub src: &'a str,
 }
@@ -64,8 +68,6 @@ impl<'a> Script<'a> {
 
 pub trait ScriptEngine {
     fn execute_script(&mut self, script: &Script) -> Result<String>;
-
-    fn empty(&self) -> String;
 
     fn reset(&mut self) -> Result<()>;
 

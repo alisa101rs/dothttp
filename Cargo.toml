@@ -1,5 +1,8 @@
 [package]
-authors = ["Brian Payne <bwpayne@gmail.com>", "Alisa Gorelova <nanopro1g@gmail.com>"]
+authors = [
+    "Brian Payne <bwpayne@gmail.com>",
+    "Alisa Gorelova <nanopro1g@gmail.com>",
+]
 edition = "2021"
 name = "dothttp"
 version = "0.9.0"
@@ -7,7 +10,11 @@ readme = "README.md"
 description = "dothttp is a text-based scriptable HTTP client. It is a fork for dot-http. It is a simple language that resembles the actual HTTP protocol but with additional features to make it practical for someone who builds and tests APIs."
 repository = "https://github.com/alisa101rs/dothttp"
 keywords = ["http", "scriptable", "java-script", "API"]
-categories = ["command-line-utilities", "development-tools::testing", "web-programming::http-client"]
+categories = [
+    "command-line-utilities",
+    "development-tools::testing",
+    "web-programming::http-client",
+]
 license = "Apache-2.0"
 
 [[bin]]
@@ -17,7 +24,9 @@ path = "src/main.rs"
 [dependencies]
 boa_engine = { version = "0.17.3" }
 boa_runtime = "0.17.3"
-reqwest = { version = "^0.11.22", features = ["rustls-tls"], default-features = false }
+reqwest = { version = "^0.11.22", features = [
+    "rustls-tls",
+], default-features = false }
 pest = "2.7.5"
 pest_derive = "2.7.5"
 clap = { version = "4.4.6", features = ["derive"] }
@@ -34,4 +43,3 @@ ascii_table = "4.0.3"
 [dev-dependencies]
 axum = "0.7.4"
 tempfile = "3.8.0"
-

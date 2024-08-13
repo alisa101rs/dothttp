@@ -7,28 +7,29 @@
 [![build](https://github.com/alisa101rs/dothttp/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/alisa101rs/dothttp/actions/workflows/test.yml)
 [![nix](https://github.com/alisa101rs/dothttp/actions/workflows/nix.yml/badge.svg?branch=main)](https://github.com/alisa101rs/dothttp/actions/workflows/nix.yml)
 
-`dothttp` is a text-based scriptable HTTP client. 
+`dothttp` is a text-based scriptable HTTP client.
 It is a simple language that resembles the actual HTTP protocol but with just a smidgen of magic to make it more practical for someone who builds and tests APIs.
 
 The difference from [dot-http](https://github.com/bayne/dot-http) is that `dothttp` aims to provide full compatability with IntelliJ [Http Client](https://www.jetbrains.com/help/idea/http-client-in-product-code-editor.html).
 
-Current list of feature support:
-- [x] Environment Files
-- [x] Variables
-- [x] Special variables: `$random`, `$timestamp` and `$isoTimestamp`
-- [x] Response handlers
-- [x] Response unit tests
-- [ ] Posting request bodies from files
-- [x] Pre-request scripts
-- [x] Pre-request variables block
-- [ ] Cookies
-- [ ] gRPC requests
-- [ ] WebSocket requests
-- [ ] GraphQL
- 
-## Things to consider
-- [ ] terminal UI with [ratatui](https://github.com/ratatui-org/ratatui)
-- [ ] stress test support
+## Supported Features
+
+| Feature                                                                                                           | Status | Commentary |
+| ----------------------------------------------------------------------------------------------------------------- | ------ | ---------- |
+| Environment Files                                                                                                 | ✅     |            |
+| Global Variables                                                                                                  | ✅     |            |
+| [Per-request Variables](https://www.jetbrains.com/help/idea/exploring-http-syntax.html#per_request_variables)     | ✅     |            |
+| [In-place Variables](https://www.jetbrains.com/help/idea/exploring-http-syntax.html#in-place-variables)           | ✅     |            |
+| [Dynamic Variables](https://www.jetbrains.com/help/idea/exploring-http-syntax.html#dynamic-variables)             | ✅     |            |
+| [Iterate over variables](https://www.jetbrains.com/help/idea/exploring-http-syntax.html#collections-in-variables) | 🛑     |            |
+| Response handlers, Response unit tests                                                                            | ✅     |            |
+| Cookie jars                                                                                                       | 🛑     |            |
+| gRPC requests                                                                                                     | 🛑     |            |
+| WebSocket requests                                                                                                | 🛑     |            |
+| GraphQL requests                                                                                                  | 🛑     |            |
+
+- ✅ Fully supported
+- 🛑 Not yet supported
 
 ## Installation
 
@@ -55,6 +56,7 @@ rustup run stable cargo install dothttp
 ### Nix
 
 You can also use `nix` (with flakes) to run and use `dothttp`:
+
 ```bash,no_run
 $ nix run github:alisa101rs/dothttp
 ```
@@ -68,11 +70,14 @@ See `dothttp --help` for usage.
 The request format is intended to resemble HTTP as close as possible. HTTP was initially designed to be human-readable and simple, so why not use that?
 
 **simple.http**
+
 ```text,no_run
 GET http://httpbin.org
 Accept: */*
 ```
+
 Executing that script just prints the response to stdout:
+
 ```text,no_run
 $ dothttp simple.http
 GET http://httpbin.org/get
@@ -105,6 +110,7 @@ connection: keep-alive
 Use variables to build the scripts dynamically, either pulling data from your environment file or from a previous request's response handler.
 
 **simple_with_variables.http**
+
 ```text,no_run
 POST http://httpbin.org/post
 Accept: */*
@@ -116,6 +122,7 @@ X-Auth-Token: {{token}}
 ```
 
 **http-client.env.json**
+
 ```text,no_run
 {
     "dev": {
@@ -126,6 +133,7 @@ X-Auth-Token: {{token}}
 ```
 
 Note that the variables are replaced by their values
+
 ```text,no_run
 $ dothttp simple_with_variables.http
 POST http://httpbin.org/post
@@ -166,6 +174,7 @@ connection: keep-alive
 Use an environment file to control what initial values variables have
 
 **http-client.env.json**
+
 ```text,no_run
 {
     "dev": {
@@ -180,6 +189,7 @@ Use an environment file to control what initial values variables have
 ```
 
 **env_demo.http**
+
 ```text,no_run
 GET http://{{host}}
 X-Auth-Token: {{token}}
@@ -203,6 +213,7 @@ X-Auth-Token: ProductionToken
 Use previous requests to populate some of the data in future requests
 
 **response_handler.http**
+
 ```text,no_run
 POST http://httpbin.org/post
 Content-Type: application/json
@@ -269,9 +280,9 @@ connection: keep-alive
 
 Contributions and suggestions are very welcome!
 
-Please create an issue before submitting a PR, PRs will only be accepted if they reference an existing issue. 
+Please create an issue before submitting a PR, PRs will only be accepted if they reference an existing issue.
 If you have a suggested change please create an issue first so that we can discuss it.
 
 ## License
-[Apache License 2.0](https://github.com/bayne/dothttp/blob/master/LICENSE)
 
+[Apache License 2.0](https://github.com/bayne/dothttp/blob/master/LICENSE)
