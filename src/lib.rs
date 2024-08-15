@@ -15,6 +15,7 @@ use crate::{
 
 mod environment;
 mod executor;
+pub mod export;
 mod http;
 pub mod output;
 pub(crate) mod parser;

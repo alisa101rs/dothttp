@@ -6,9 +6,10 @@ use std::{
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::Result;
 use dothttp::{
+    export,
     output::{parse_format, print::FormattedOutput, CiOutput, Output},
     source::FilesSourceProvider,
-    ClientConfig, EnvironmentFileProvider, Runtime,
+    ClientConfig, EnvironmentFileProvider, Runtime, SourceProvider,
 };
 
 #[derive(Parser, Debug)]
@@ -28,11 +29,29 @@ struct CliArgs {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Execute requests
     Execute {
         #[command(flatten)]
         exec: ExecuteArgs,
         #[command(flatten)]
         env: EnvironmentArgs,
+    },
+    /// Export environment as postman_environment
+    ExportEnvironment {
+        #[command(flatten)]
+        env: EnvironmentArgs,
+
+        /// Name for exported collection
+        #[arg(long, default_value = "dothttp-environment")]
+        name: String,
+    },
+
+    ExportCollection {
+        files: Vec<String>,
+
+        /// Name for exported collection
+        #[arg(long, default_value = "dothttp-collection")]
+        name: String,
     },
 }
 
@@ -99,8 +118,16 @@ async fn main() -> Result<std::process::ExitCode> {
     let command = command.unwrap_or(Command::Execute { exec, env });
 
     match command {
-        Command::Execute { exec, env } => run_execute(environment(env)?, exec).await,
+        Command::Execute { exec, env } => return run_execute(environment(env)?, exec).await,
+        Command::ExportEnvironment { env, name } => {
+            export::environment(name, environment(env)?)?;
+        }
+        Command::ExportCollection { files, name } => {
+            export::collection(name, FilesSourceProvider::from_list(&files)?.requests())?;
+        }
     }
+
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 fn environment(

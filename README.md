@@ -27,9 +27,11 @@ The difference from [dot-http](https://github.com/bayne/dot-http) is that `dotht
 | gRPC requests                                                                                                     | 🛑     |            |
 | WebSocket requests                                                                                                | 🛑     |            |
 | GraphQL requests                                                                                                  | 🛑     |            |
+| Postman Export                                                                                                    | 🚧     |            |
 
 - ✅ Fully supported
 - 🛑 Not yet supported
+- 🚧 Work in progress
 
 ## Installation
 
@@ -63,7 +65,137 @@ $ nix run github:alisa101rs/dothttp
 
 ## Usage
 
-See `dothttp --help` for usage.
+```shell
+> dothttp --help
+dothttp is a text-based scriptable HTTP client. It is a fork for dot-http.
+It is a simple language that resembles the actual HTTP protocol but with additional features to make it practical for someone who builds and tests APIs.
+
+Usage: dothttp [OPTIONS] [FILES]...
+       dothttp execute [OPTIONS] [FILES]...
+       dothttp export-environment [OPTIONS]
+       dothttp export-collection [OPTIONS] [FILES]...
+       dothttp help [COMMAND]...
+
+Arguments:
+  [FILES]...
+
+
+Options:
+      --request-format <REQUEST_FORMAT>
+          The format of the request output. Only relevant if `-format=standard`.
+
+          [possible values: %R - HTTP protocol, %N - request Name, %B - request Body, %H - request Headers]
+
+          [default: "%N\n%R\n\n"]
+
+      --response-format <RESPONSE_FORMAT>
+          The format of the response output. Only relevant if `-format=standard`.
+
+          [possible values: %R - HTTP protocol, %T - Response unit tests, %B - Response Body, %H - Response Headers]
+
+          [default: "%R\n%H\n%B\n\n%T\n"]
+
+      --accept-invalid-certs
+
+
+      --format <FORMAT>
+          Which mode to use to print result
+
+          [default: standard]
+          [possible values: standard, ci]
+
+  -n, --environment-file <ENVIRONMENT_FILE>
+          A file containing a JSON object that describes the initial values for variables
+
+  -p, --snapshot <SNAPSHOT>
+          A file containing a JSON object that persists variables between each invocation
+
+  -e, --environment <ENVIRONMENT>
+          The key value to use on the environment file
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+dothttp execute:
+Execute requests
+      --request-format <REQUEST_FORMAT>
+          The format of the request output. Only relevant if `-format=standard`.
+
+          [possible values: %R - HTTP protocol, %N - request Name, %B - request Body, %H - request Headers]
+
+          [default: "%N\n%R\n\n"]
+
+      --response-format <RESPONSE_FORMAT>
+          The format of the response output. Only relevant if `-format=standard`.
+
+          [possible values: %R - HTTP protocol, %T - Response unit tests, %B - Response Body, %H - Response Headers]
+
+          [default: "%R\n%H\n%B\n\n%T\n"]
+
+      --accept-invalid-certs
+
+
+      --format <FORMAT>
+          Which mode to use to print result
+
+          [default: standard]
+          [possible values: standard, ci]
+
+  -n, --environment-file <ENVIRONMENT_FILE>
+          A file containing a JSON object that describes the initial values for variables
+
+  -p, --snapshot <SNAPSHOT>
+          A file containing a JSON object that persists variables between each invocation
+
+  -e, --environment <ENVIRONMENT>
+          The key value to use on the environment file
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  [FILES]...
+
+
+dothttp export-environment:
+Export environment as postman_environment
+  -n, --environment-file <ENVIRONMENT_FILE>
+          A file containing a JSON object that describes the initial values for variables
+
+  -p, --snapshot <SNAPSHOT>
+          A file containing a JSON object that persists variables between each invocation
+
+  -e, --environment <ENVIRONMENT>
+          The key value to use on the environment file
+
+      --name <NAME>
+          Name for exported collection
+
+          [default: dothttp-environment]
+
+  -h, --help
+          Print help
+
+dothttp export-collection:
+      --name <NAME>
+          Name for exported collection
+
+          [default: dothttp-collection]
+
+  -h, --help
+          Print help
+
+  [FILES]...
+
+
+dothttp help:
+Print this message or the help of the given subcommand(s)
+  [COMMAND]...
+          Print help for the subcommand(s)
+
+```
 
 ### The request
 
