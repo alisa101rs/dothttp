@@ -29,10 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ${{ matrix.toolchain }}
+      - name: Install ${{ matrix.target }}
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: stable
+          targets: ${{ matrix.target }}
 
       - name: Install gcc-aarch64-linux-gnu
         if: matrix.target == 'aarch64-unknown-linux-gnu'
