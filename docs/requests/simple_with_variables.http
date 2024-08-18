@@ -1,0 +1,7 @@
+POST https://httpbin.org/post
+Accept: */*
+X-Auth-Token: {{token}}
+
+{
+    "id": {{env_id}}
+}

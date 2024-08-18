@@ -1,16 +1,19 @@
-# Environments
+# Postman Export
 
-## Example
+**THIS FEATURE IS IN EXPERIMENTAL STATE**
 
-```shell
+`dothttp` provides ability to export http environments and http requests to postman_environment and postman_collection formats.
+Some features of `.http` can't be mapped to postman idealy, yet the best effort to convert requests, variable blocks, pre-request and response handlers is made.
+
+## Examples
+
+Environment:
+```shell,no-run
 dothttp export-environment -n env.json -e dev --name example > example.postman_environment.json
 ```
 
-# Collections
-
-## Example
-
-```shell
+Collection:
+```shell,no-run
 dothttp export-collection --name my-collection request-1.http request-2.http > my-collection.postman_collection.json
 ```
 

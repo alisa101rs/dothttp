@@ -2,7 +2,6 @@ use std::fmt::Write;
 
 use color_eyre::eyre::{Result, WrapErr};
 use postman::BodyClass;
-
 use serde_json::Value as DynValue;
 
 use crate::{
@@ -75,11 +74,10 @@ impl CollectionExporter {
                 ],
                 ..Default::default()
             },
-            ..Default::default()
         }
     }
 
-    fn add_request<'a>(&mut self, source: SourceItem<'a>) -> Result<()> {
+    fn add_request(&mut self, source: SourceItem<'_>) -> Result<()> {
         let parser::RequestScript {
             name,
             request,
@@ -98,7 +96,7 @@ impl CollectionExporter {
         item.event.extend(
             ResponseHandlerHelper::default()
                 .handler(handler)
-                .to_script(),
+                .into_script(),
         );
 
         let parser::Request {
@@ -113,10 +111,9 @@ impl CollectionExporter {
 
         let request = postman::RequestClass {
             method: method.into(),
-            url: postman::Url::String(pre_request_helper.process(target)),
+            url: pre_request_helper.process(target),
             body: Self::make_body(body, headers, &mut pre_request_helper),
             header: Self::make_headers(headers, &mut pre_request_helper),
-            ..Default::default()
         };
 
         item.request = Some(request);
@@ -125,10 +122,10 @@ impl CollectionExporter {
             pre_request_helper
                 .variables(request_variables.iter())
                 .pre_request_handler(pre_request_handler)
-                .to_script(),
+                .into_script(),
         );
 
-        Self::file(&mut self.inner.item, &source.name)
+        Self::file(&mut self.inner.item, source.name)
             .item
             .push(item);
 
@@ -246,7 +243,7 @@ struct PreRequestScriptHelper {
 
 impl PreRequestScriptHelper {
     fn collection_script() -> postman::Event {
-        const SRC: &'static str = include_str!("./collection_pre_script.js");
+        const SRC: &str = include_str!("./collection_pre_script.js");
 
         postman::Event {
             listen: postman::EventType::Prerequest,
@@ -430,7 +427,7 @@ impl PreRequestScriptHelper {
         value
     }
 
-    fn to_script(&mut self) -> Option<postman::Event> {
+    fn into_script(self) -> Option<postman::Event> {
         if self.body.is_empty() {
             return None;
         }
@@ -438,7 +435,7 @@ impl PreRequestScriptHelper {
         let event = postman::Event {
             listen: postman::EventType::Prerequest,
             script: postman::Script {
-                exec: std::mem::replace(&mut self.body, Default::default()),
+                exec: self.body,
                 script_type: "text/javascript",
             },
         };
@@ -446,7 +443,7 @@ impl PreRequestScriptHelper {
         Some(event)
     }
 
-    fn variables<'a, K>(&mut self, v: impl Iterator<Item = &'a (K, parser::Value)>) -> &mut Self
+    fn variables<'a, K>(mut self, v: impl Iterator<Item = &'a (K, parser::Value)>) -> Self
     where
         K: AsRef<str> + 'a,
     {
@@ -469,7 +466,7 @@ impl PreRequestScriptHelper {
         self.body.push_str(Self::PRELUDE);
     }
 
-    fn pre_request_handler(&mut self, handler: &Option<parser::Handler>) -> &mut Self {
+    fn pre_request_handler(mut self, handler: &Option<parser::Handler>) -> Self {
         let Some(handler) = handler else { return self };
 
         self.add_prelude();
@@ -486,7 +483,7 @@ struct ResponseHandlerHelper {
 
 impl ResponseHandlerHelper {
     fn collection_script() -> postman::Event {
-        const SRC: &'static str = include_str!("./collection_post_script.js");
+        const SRC: &str = include_str!("./collection_post_script.js");
 
         postman::Event {
             listen: postman::EventType::Test,
@@ -504,7 +501,7 @@ impl ResponseHandlerHelper {
         self.body = Self::PRELUDE.to_owned();
     }
 
-    fn handler(&mut self, handler: &Option<parser::Handler>) -> &mut Self {
+    fn handler(mut self, handler: &Option<parser::Handler>) -> Self {
         let Some(handler) = handler else { return self };
         if self.body.is_empty() {
             self.add_prelude();
@@ -514,7 +511,7 @@ impl ResponseHandlerHelper {
         self
     }
 
-    fn to_script(&mut self) -> Option<postman::Event> {
+    fn into_script(self) -> Option<postman::Event> {
         if self.body.is_empty() {
             return None;
         }
@@ -522,7 +519,7 @@ impl ResponseHandlerHelper {
         let event = postman::Event {
             listen: postman::EventType::Test,
             script: postman::Script {
-                exec: std::mem::replace(&mut self.body, Default::default()),
+                exec: self.body,
                 script_type: "text/javascript",
             },
         };

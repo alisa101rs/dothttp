@@ -4,3 +4,4 @@ target
 .snapshot.json
 .idea
 .zed
+**/zzz_md_backups
