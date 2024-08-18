@@ -1,0 +1,30 @@
+### Get Data
+
+POST http://httpbin.org/post
+Content-Type: application/json
+
+{
+    "token": "sometoken",
+    "id": "237"
+}
+
+> {%
+   client.global.set("auth_token", response.body["json"]["token"]);
+   client.global.set("some_id", response.body["json"]["id"]);
+%}
+
+### Make request with data
+
+PUT http://httpbin.org/put
+X-Auth-Token: {{auth_token}}
+Content-Type: application/json
+
+{
+    "id": "{{some_id}}"
+}
+
+> {%
+    client.test("correct token is present", () => {
+        client.assert(response.body["headers"]["X-Auth-Token"] == client.global.get("auth_token"));
+    });
+%}

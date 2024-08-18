@@ -27,9 +27,11 @@ The difference from [dot-http](https://github.com/bayne/dot-http) is that `dotht
 | gRPC requests                                                                                                     | 🛑     |            |
 | WebSocket requests                                                                                                | 🛑     |            |
 | GraphQL requests                                                                                                  | 🛑     |            |
+| Postman Export                                                                                                    | 🚧     |            |
 
 - ✅ Fully supported
 - 🛑 Not yet supported
+- 🚧 Work in progress
 
 ## Installation
 
@@ -43,238 +45,170 @@ You can find binaries for various platforms on the
 
 First, install [cargo](https://rustup.rs/). Then:
 
-```bash,no_run
-$ cargo install dothttp
+```nu,no-run
+> cargo install dothttp
 ```
 
 You will need to use the stable release for this to work; if in doubt run
 
-```bash,no_run
-rustup run stable cargo install dothttp
+```nu,no-run
+> rustup run stable cargo install dothttp
 ```
 
 ### Nix
 
 You can also use `nix` (with flakes) to run and use `dothttp`:
 
-```bash,no_run
-$ nix run github:alisa101rs/dothttp
+```nu,no-run
+> nix run github:alisa101rs/dothttp
 ```
 
 ## Usage
 
-See `dothttp --help` for usage.
+```nu
+> dothttp --help
+dothttp is a text-based scriptable HTTP client. It is a fork for dot-http. It is a simple language that resembles the actual HTTP protocol but with additional features to make it practical for someone who builds and tests APIs.
 
-### The request
+Usage: dothttp [OPTIONS] [FILES]...
+       dothttp execute [OPTIONS] [FILES]...
+       dothttp export-environment [OPTIONS]
+       dothttp export-collection [OPTIONS] [FILES]...
+       dothttp help [COMMAND]...
 
-The request format is intended to resemble HTTP as close as possible. HTTP was initially designed to be human-readable and simple, so why not use that?
+Arguments:
+  [FILES]...
+          List of request files to execute, optionally proceeded `:<number>` to execute only specified request out of all requests present in this file
 
-**simple.http**
+          Example: request.http request-2.http request-3.http:2
 
-```text,no_run
-GET http://httpbin.org
-Accept: */*
+Options:
+      --request-format <REQUEST_FORMAT>
+          The format of the request output. Only relevant if `--format=standard`.
+
+          [possible values: %R - HTTP protocol, %N - request Name, %B - request Body, %H - request Headers]
+
+          [default: "%N\n%R\n\n"]
+
+      --response-format <RESPONSE_FORMAT>
+          The format of the response output. Only relevant if `--format=standard`.
+
+          [possible values: %R - HTTP protocol, %T - Response unit tests, %B - Response Body, %H - Response Headers]
+
+          [default: "%R\n%H\n%B\n\n%T\n"]
+
+      --accept-invalid-certs
+
+
+      --format <FORMAT>
+          Which mode to use to print result
+
+          [default: standard]
+          [possible values: standard, ci]
+
+  -n, --environment-file <ENVIRONMENT_FILE>
+          A file containing a JSON object that describes the initial values for variables
+
+  -p, --snapshot <SNAPSHOT>
+          A file containing a JSON object that persists variables between each invocation
+
+  -e, --environment <ENVIRONMENT>
+          The key value to use on the environment file
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+dothttp execute:
+Execute requests
+      --request-format <REQUEST_FORMAT>
+          The format of the request output. Only relevant if `--format=standard`.
+
+          [possible values: %R - HTTP protocol, %N - request Name, %B - request Body, %H - request Headers]
+
+          [default: "%N\n%R\n\n"]
+
+      --response-format <RESPONSE_FORMAT>
+          The format of the response output. Only relevant if `--format=standard`.
+
+          [possible values: %R - HTTP protocol, %T - Response unit tests, %B - Response Body, %H - Response Headers]
+
+          [default: "%R\n%H\n%B\n\n%T\n"]
+
+      --accept-invalid-certs
+
+
+      --format <FORMAT>
+          Which mode to use to print result
+
+          [default: standard]
+          [possible values: standard, ci]
+
+  -n, --environment-file <ENVIRONMENT_FILE>
+          A file containing a JSON object that describes the initial values for variables
+
+  -p, --snapshot <SNAPSHOT>
+          A file containing a JSON object that persists variables between each invocation
+
+  -e, --environment <ENVIRONMENT>
+          The key value to use on the environment file
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  [FILES]...
+          List of request files to execute, optionally proceeded `:<number>` to execute only specified request out of all requests present in this file
+
+          Example: request.http request-2.http request-3.http:2
+
+dothttp export-environment:
+Export environment as postman_environment
+  -n, --environment-file <ENVIRONMENT_FILE>
+          A file containing a JSON object that describes the initial values for variables
+
+  -p, --snapshot <SNAPSHOT>
+          A file containing a JSON object that persists variables between each invocation
+
+  -e, --environment <ENVIRONMENT>
+          The key value to use on the environment file
+
+      --name <NAME>
+          Name for exported collection
+
+          [default: dothttp-environment]
+
+  -h, --help
+          Print help
+
+dothttp export-collection:
+Export collection as postman_collection
+      --name <NAME>
+          Name for exported collection
+
+          [default: dothttp-collection]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  [FILES]...
+          List of request files to execute, optionally proceeded `:<number>` to execute only specified request out of all requests present in this file
+
+          Example: request.http request-2.http request-3.http:2
+
+dothttp help:
+Print this message or the help of the given subcommand(s)
+  [COMMAND]...
+          Print help for the subcommand(s)
 ```
 
-Executing that script just prints the response to stdout:
+### Running requests
 
-```text,no_run
-$ dothttp simple.http
-GET http://httpbin.org/get
+[Dothttp Request Format](docs/dothttp-format.md)
 
-HTTP/1.1 200 OK
-access-control-allow-credentials: true
-access-control-allow-origin: *
-content-type: application/json
-date: Sat, 18 Jan 2020 20:48:50 GMT
-referrer-policy: no-referrer-when-downgrade
-server: nginx
-x-content-type-options: nosniff
-x-frame-options: DENY
-x-xss-protection: 1; mode=block
-content-length: 170
-connection: keep-alive
+### Collection export to postman
 
-{
-  "args": {},
-  "headers": {
-    "Accept": "*/*",
-    "Host": "httpbin.org"
-  },
-  "url": "https://httpbin.org/get"
-}
-```
-
-### Variables
-
-Use variables to build the scripts dynamically, either pulling data from your environment file or from a previous request's response handler.
-
-**simple_with_variables.http**
-
-```text,no_run
-POST http://httpbin.org/post
-Accept: */*
-X-Auth-Token: {{token}}
-
-{
-    "id": {{env_id}}
-}
-```
-
-**http-client.env.json**
-
-```text,no_run
-{
-    "dev": {
-        "env_id": 42,
-        "token": "SuperSecretToken"
-    }
-}
-```
-
-Note that the variables are replaced by their values
-
-```text,no_run
-$ dothttp simple_with_variables.http
-POST http://httpbin.org/post
-
-HTTP/1.1 200 OK
-access-control-allow-credentials: true
-access-control-allow-origin: *
-content-type: application/json
-date: Sat, 18 Jan 2020 20:55:24 GMT
-referrer-policy: no-referrer-when-downgrade
-server: nginx
-x-content-type-options: nosniff
-x-frame-options: DENY
-x-xss-protection: 1; mode=block
-content-length: 342
-connection: keep-alive
-
-{
-  "args": {},
-  "data": "{\r\n    \"id\": 42\r\n}",
-  "files": {},
-  "form": {},
-  "headers": {
-    "Accept": "*/*",
-    "Content-Length": "18",
-    "Host": "httpbin.org",
-    "X-Auth-Token": "SuperSecretToken"
-  },
-  "json": {
-    "id": 42
-  },
-  "url": "https://httpbin.org/post"
-}
-```
-
-### Environment file
-
-Use an environment file to control what initial values variables have
-
-**http-client.env.json**
-
-```text,no_run
-{
-    "dev": {
-        "host": localhost,
-        "token": "SuperSecretToken"
-    },
-    "prod": {
-        "host": example.com,
-        "token": "ProductionToken"
-    }
-}
-```
-
-**env_demo.http**
-
-```text,no_run
-GET http://{{host}}
-X-Auth-Token: {{token}}
-```
-
-Specifying different environments when invoking the command results in different values
-for the variables in the script
-
-```text,no_run
-$ dothttp -e dev env_demo.http
-GET http://localhost
-X-Auth-Token: SuperSecretToken
-
-$ dothttp -e prod env_demo.htp
-GET http://example.com
-X-Auth-Token: ProductionToken
-```
-
-### Response handler
-
-Use previous requests to populate some of the data in future requests
-
-**response_handler.http**
-
-```text,no_run
-POST http://httpbin.org/post
-Content-Type: application/json
-
-{
-    "token": "sometoken",
-    "id": 237
-}
-
-> {%
-   client.global.set('auth_token', response.body.json.token);
-   client.global.set('some_id', response.body.json.id);
-%}
-
-###
-
-PUT http://httpbin.org/put
-X-Auth-Token: {{auth_token}}
-
-{
-    "id": {{some_id}}
-}
-```
-
-Data from a previous request
-
-```text,no_run
-$ dothttp test.http
-POST http://httpbin.org/post
-
-HTTP/1.1 200 OK
-access-control-allow-credentials: true
-access-control-allow-origin: *
-content-type: application/json
-date: Sat, 18 Jan 2020 21:01:59 GMT
-referrer-policy: no-referrer-when-downgrade
-server: nginx
-x-content-type-options: nosniff
-x-frame-options: DENY
-x-xss-protection: 1; mode=block
-content-length: 404
-connection: keep-alive
-
-{
-  "args": {},
-  "data": "{\r\n    \"token\": \"sometoken\",\r\n    \"id\": 237\r\n}",
-  "files": {},
-  "form": {},
-  "headers": {
-    "Accept": "*/*",
-    "Content-Length": "46",
-    "Content-Type": "application/json",
-    "Host": "httpbin.org"
-  },
-  "json": {
-    "id": 237,
-    "token": "sometoken"
-  },
-  "url": "https://httpbin.org/post"
-}
-```
+[Exporting to postman](docs/postman-export.md)
 
 ## Contributing
 

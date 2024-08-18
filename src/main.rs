@@ -6,9 +6,10 @@ use std::{
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use color_eyre::Result;
 use dothttp::{
+    export,
     output::{parse_format, print::FormattedOutput, CiOutput, Output},
     source::FilesSourceProvider,
-    ClientConfig, EnvironmentFileProvider, Runtime,
+    ClientConfig, EnvironmentFileProvider, Runtime, SourceProvider,
 };
 
 #[derive(Parser, Debug)]
@@ -28,11 +29,33 @@ struct CliArgs {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Execute requests
     Execute {
         #[command(flatten)]
         exec: ExecuteArgs,
         #[command(flatten)]
         env: EnvironmentArgs,
+    },
+    /// Export environment as postman_environment
+    ExportEnvironment {
+        #[command(flatten)]
+        env: EnvironmentArgs,
+
+        /// Name for exported collection
+        #[arg(long, default_value = "dothttp-environment")]
+        name: String,
+    },
+    /// Export collection as postman_collection
+    ExportCollection {
+        /// Name for exported collection
+        #[arg(long, default_value = "dothttp-collection")]
+        name: String,
+
+        /// List of request files to execute,
+        /// optionally proceeded `:<number>` to execute only specified request out of all requests present in this file
+        ///
+        /// Example: request.http request-2.http request-3.http:2
+        files: Vec<String>,
     },
 }
 
@@ -53,7 +76,7 @@ struct EnvironmentArgs {
 
 #[derive(Debug, Args)]
 struct ExecuteArgs {
-    /// The format of the request output. Only relevant if `-format=standard`.
+    /// The format of the request output. Only relevant if `--format=standard`.
     ///
     /// [possible values:
     /// %R - HTTP protocol,
@@ -63,7 +86,7 @@ struct ExecuteArgs {
     #[arg(long, default_value = "%N\n%R\n\n")]
     request_format: String,
 
-    /// The format of the response output. Only relevant if `-format=standard`.
+    /// The format of the response output. Only relevant if `--format=standard`.
     ///
     /// [possible values:
     /// %R - HTTP protocol,
@@ -80,6 +103,10 @@ struct ExecuteArgs {
     #[arg(long = "format", default_value = "standard")]
     format: FormatType,
 
+    /// List of request files to execute,
+    /// optionally proceeded `:<number>` to execute only specified request out of all requests present in this file
+    ///
+    /// Example: request.http request-2.http request-3.http:2
     files: Vec<String>,
 }
 
@@ -99,8 +126,16 @@ async fn main() -> Result<std::process::ExitCode> {
     let command = command.unwrap_or(Command::Execute { exec, env });
 
     match command {
-        Command::Execute { exec, env } => run_execute(environment(env)?, exec).await,
+        Command::Execute { exec, env } => return run_execute(environment(env)?, exec).await,
+        Command::ExportEnvironment { env, name } => {
+            export::environment(name, environment(env)?)?;
+        }
+        Command::ExportCollection { files, name } => {
+            export::collection(name, FilesSourceProvider::from_list(&files)?.requests())?;
+        }
     }
+
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 fn environment(
