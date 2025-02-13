@@ -6,14 +6,13 @@ mod tests;
 
 use std::fmt;
 
-use color_eyre::eyre::anyhow;
-
 pub use self::{ci::CiOutput, print::FormattedOutput};
 use crate::{
     http::{Method, Request, Response},
     script_engine::report::TestsReport,
     Result,
 };
+use miette::miette;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum FormatItem {
@@ -39,7 +38,7 @@ pub fn parse_format(format: &str) -> Result<Vec<FormatItem>> {
                 'B' => Some(FormatItem::Body),
                 'T' => Some(FormatItem::Tests),
                 'N' => Some(FormatItem::Name),
-                _ => return Err(anyhow!("Invalid formatting character '{}'", ch)),
+                _ => return Err(miette!("Invalid formatting character '{}'", ch)),
             };
             if let Some(a) = action {
                 if !buff.is_empty() {

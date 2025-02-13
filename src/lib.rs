@@ -1,7 +1,5 @@
 use std::borrow::BorrowMut;
 
-use color_eyre::{eyre::Context, Report};
-
 pub use crate::{
     environment::{EnvironmentFileProvider, EnvironmentProvider, StaticEnvironmentProvider},
     source::SourceProvider,
@@ -12,6 +10,7 @@ use crate::{
     output::Output,
     script_engine::{boa::BoaScriptEngine, create_script_engine, ScriptEngine},
 };
+use miette::{Context as _, IntoDiagnostic, Report};
 
 mod environment;
 mod executor;
@@ -23,7 +22,7 @@ mod script_engine;
 pub mod source;
 
 pub type Error = Report;
-pub type Result<T> = color_eyre::Result<T>;
+pub type Result<T> = miette::Result<T>;
 
 pub struct ClientConfig {
     pub ssl_check: bool,
@@ -94,6 +93,7 @@ where
 
         self.environment
             .save(&snapshot)
+            .into_diagnostic()
             .with_context(|| "Error writing snapshot")?;
 
         Ok(())

@@ -1,5 +1,7 @@
 use std::{fmt, io::Write, process::ExitCode};
 
+use miette::IntoDiagnostic;
+
 use crate::{
     http,
     output::{prettify_response_body, FormatItem, Output},
@@ -98,7 +100,7 @@ impl<W1: Write, W2: Write> Output for FormattedOutput<W1, W2> {
                 continue;
             }
 
-            write!(self.writer, "{to_write}")?;
+            write!(self.writer, "{to_write}").into_diagnostic()?;
         }
 
         self.error = self.error || tests.failed().next().is_some();
@@ -132,7 +134,7 @@ impl<W1: Write, W2: Write> Output for FormattedOutput<W1, W2> {
                 continue;
             }
 
-            write!(self.writer, "{to_write}")?;
+            write!(self.writer, "{to_write}").into_diagnostic()?;
         }
         Ok(())
     }
@@ -144,7 +146,7 @@ impl<W1: Write, W2: Write> Output for FormattedOutput<W1, W2> {
 
         let mut index = 1;
 
-        writeln!(self.writer_err, "RUN FAILED")?;
+        writeln!(self.writer_err, "RUN FAILED").into_diagnostic()?;
 
         for (file, name, tests) in tests {
             for (test, result) in tests.failed() {
@@ -154,7 +156,8 @@ impl<W1: Write, W2: Write> Output for FormattedOutput<W1, W2> {
                 writeln!(
                     self.writer_err,
                     "{index}. Test `{test}` in `[{file} / {name}]` FAILED with {error}"
-                )?;
+                )
+                .into_diagnostic()?;
                 index += 1;
             }
         }

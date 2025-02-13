@@ -6,7 +6,6 @@ use serde_json::Map;
 use crate::{
     environment::EnvironmentProvider,
     http, parser,
-    parser::Selection,
     script_engine::{boa::BoaScriptEngine, report::TestsReport},
     Result,
 };
@@ -33,9 +32,8 @@ pub enum Unprocessed {
     WithInline {
         value: String,
         inline_scripts: Vec<InlineScript>,
-        selection: Selection,
     },
-    WithoutInline(String, Selection),
+    WithoutInline(String),
 }
 
 #[derive(Debug)]
@@ -43,8 +41,6 @@ pub enum Unprocessed {
 pub struct InlineScript {
     pub script: String,
     pub placeholder: String,
-    #[allow(unused)]
-    pub selection: Selection,
 }
 
 pub fn create_script_engine(environment: &mut dyn EnvironmentProvider) -> Result<BoaScriptEngine> {
@@ -52,17 +48,12 @@ pub fn create_script_engine(environment: &mut dyn EnvironmentProvider) -> Result
 }
 
 pub struct Script<'a> {
-    #[allow(unused)]
-    pub selection: Selection,
     pub src: &'a str,
 }
 
 impl<'a> Script<'a> {
     pub fn internal_script(src: &str) -> Script {
-        Script {
-            src,
-            selection: Selection::none(),
-        }
+        Script { src }
     }
 }
 
@@ -88,7 +79,6 @@ pub trait ScriptEngine {
                     Unprocessed::WithInline {
                         value,
                         inline_scripts,
-                        selection: _selection,
                     },
             } => {
                 let mut interpolated = value;
@@ -105,7 +95,7 @@ pub trait ScriptEngine {
                 })
             }
             Value {
-                state: Unprocessed::WithoutInline(value, _),
+                state: Unprocessed::WithoutInline(value, ..),
             } => Ok(Value {
                 state: Processed { value },
             }),

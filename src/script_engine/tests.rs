@@ -115,9 +115,7 @@ fn test_special_variables() {
             inline_scripts: vec![InlineScript {
                 script: "$random.integer".to_string(),
                 placeholder: "{{ $random.integer }}".to_string(),
-                selection: Default::default(),
             }],
-            selection: Default::default(),
         },
     };
 

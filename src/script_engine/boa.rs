@@ -5,7 +5,7 @@ mod variables;
 
 use boa_engine::{property::Attribute, Context, JsError, JsValue, Source};
 use client::Client;
-use color_eyre::eyre::{anyhow, Context as _};
+use miette::{miette as anyhow, Context as _};
 use random::Random;
 use serde_json::{json, Value};
 

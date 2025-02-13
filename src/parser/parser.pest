@@ -1,53 +1,111 @@
-CRLF    = _{ "\r\n" | "\n" | "\r" }
-COMMENT = _{ !request_separator ~ "#" ~ (!CRLF ~ ANY)* ~ CRLF }
-SP      = _{ " " }
-ALPHA   = _{ 'a'..'z' | 'A'..'Z' }
-DIGIT   = _{ '0'..'9' }
-IDENT   = _{ !DIGIT ~ (ALPHA | DIGIT | "_"){1, } }
+INPUT      = _{ !NEWLINE ~ ANY }
+COMMENT    = _{ (("#" ~ !"##") | "//") ~ INPUT* ~ NEWLINE }
+SP         = _{ " " }
+WHITESPACE = _{ SP }
+ALPHA      = _{ 'a'..'z' | 'A'..'Z' }
+DIGIT      = _{ '0'..'9' }
+IDENT      = _{ (ALPHA | "_") ~ (ALPHA | DIGIT | "_" | "-")* }
+EMPTY_LINE = _{ NEWLINE ~ !INPUT }
+INDENT     = _{ "\t" | "    " | "   " | "  " | " " }
+INDENTED_NEWLINE  = @{ NEWLINE ~ INDENT }
 
-url_string          = _{ (inline_script | (CRLF ~ SP{1, } ~ url_multiline_item) | url_singleline_item)* }
-url_singleline_item = _{ !(SP{1, } ~ http_version) ~ !CRLF ~ ANY }
-url_multiline_item  = _{ !http_version ~ !CRLF ~ ANY }
+/// Request separator
+request_separator = { "###" ~ INPUT* ~ &NEWLINE }
 
-token = _{ (tchar | inline_script)* }
-tchar = _{ "!" | "#" | "$" | "%" | "&" | "'" | "*" | "+" | "-" | "." | "^" | "_" | "`" | "|" | "~" | ASCII_ALPHANUMERIC }
+/// Request Line
+// Like target, method, authority, etc.
+request_line = _{ SP* ~ method? ~ request_target ~ (SP+ ~ http_version)? ~ SP* }
+http_version = ${ "HTTP/" ~ DIGIT+ ~ "." ~ DIGIT+ }
+method_name  = _{ "GET" | "HEAD" | "POST" | "PUT" | "DELETE" | "CONNECT" | "PATCH" | "OPTIONS" | "TRACE" }
+method       = @{ method_name ~ SP+ }
 
-plain_request_separator     = _{ "###" }
-request_separator_with_name =  { plain_request_separator ~ (!CRLF ~ ANY)* }
-request_separator           = _{ request_separator_with_name | plain_request_separator }
+/// Request target
+request_target = @{ absolute_form | origin_form | asterisk_form }
+origin_form    =  { absolute_path ~ ("?" ~ query)? ~ ("#" ~ fragment)? }
+absolute_form  =  { (scheme ~ "://")? ~ hier_part ~ ("?" ~ query)? ~ ("#" ~ fragment)? }
+hier_part      =  { authority ~ absolute_path? }
+asterisk_form  =  { "*" }
+scheme         =  { "https" | "http" }
 
-handler_script_string           =  { handler_script_string_character* }
-handler_script_string_character = _{ !handler_script_end ~ !"{%" ~ ANY }
-handler_script_start            = _{ "> {%" ~ (SP | CRLF)* }
-pre_handler_script_start        = _{ "< {%" ~ (SP | CRLF)* }
-handler_script_end              = _{ (SP | CRLF)* ~ "%}" }
+// authority
+authority             =  { host ~ (":" ~ port)? }
+port                  =  { DIGIT+ }
+host                  =  { ipv6_address | ipv4_or_reg_name }
+ipv6_input_char       = _{ !("/" | "]") ~ INPUT }
+ipv6_address          =  { "[" ~ ipv6_input_char+ ~ "]" }
+ipv4_or_reg_name_char = _{ !("/" | ":" | "?" | "#") ~ INPUT }
+ipv4_or_reg_name      =  { ipv4_or_reg_name_char+ }
 
-inline_script                  =  { "{{" ~ SP* ~ inline_script_string ~ inline_script_end }
-inline_script_string           =  { inline_script_string_character* }
-inline_script_string_character = _{ !inline_script_end ~ !"{{" ~ ANY }
-inline_script_end              = _{ SP* ~ "}}" }
+// resource
+absolute_path     =  { (path_separator ~ path_segment)+ | "/" }
+path_separator    =  { "/" | INDENTED_NEWLINE }
+path_segment_char = _{ !("/" | "?" | "#") ~ INPUT }
+path_segment      =  { path_segment_char* }
 
-request_script = { request_separator? ~ CRLF* ~ request_variable_declarations? ~ CRLF* ~ pre_request_handler? ~ CRLF* ~ request ~ CRLF* ~ request_body? ~ response_handler? }
-request_body   = { (!request_separator ~ !handler_script_start ~ !EOI ~ (inline_script | ANY))+ }
+// query and fragment
+query_char            = _{ !"#" ~ INPUT }
+query_with_newline    = _{ INDENTED_NEWLINE ~ query }
+query                 = @{ query_char* ~ query_with_newline? }
+fragment_char         = _{ !"?" ~ INPUT }
+fragment_with_newline = _{ INDENTED_NEWLINE ~ fragment }
+fragment              = @{ fragment_char* ~ fragment_with_newline? }
 
-pre_request_handler = ${ !request_separator ~ pre_handler_script_start ~ handler_script_string ~ handler_script_end }
-response_handler    = ${ !request_separator ~ handler_script_start ~ handler_script_string ~ handler_script_end }
+/// Headers
+headers      = _{ (header_field ~ NEWLINE)* }
+header_field = { header_name ~ ":" ~ SP* ~ header_value }
+header_name  = ${ IDENT }
+header_value = { INPUT+ }
 
+/// Message Body
+message_body   =  { messages | multipart_form_data }
+messages       = @{ message_line ~ (NEWLINE ~ message_line)* }
+message_line   =  { (!("<" | "<> " | "###" | "> {%") ~ INPUT*) | input_file_ref }
+input_file_ref =  { "< " ~ file_path }
+file_path      =  { INPUT+ ~ NEWLINE }
+
+// multipart-form-data
+multipart_form_data = { multipart_field ~ multipart_form_data? ~ boundary }
+multipart_field     = { boundary ~ (header_field ~ NEWLINE)* ~ NEWLINE ~ messages? }
+boundary            = { "--" ~ INPUT ~ NEWLINE }
+
+/// Response Handler
+response_handler        =  { response_handler_script | response_handler_ref }
+response_handler_script = _{ "> {%" ~ handler_script ~ "%}" }
+response_handler_ref    =  { "> " ~ file_path }
+handler_script          =  { (!"%}" ~ ANY)* }
+
+/// Pre request script
+request_handler        =  { request_handler_script | request_handler_ref }
+request_handler_script = _{ "< {%" ~ pre_handler_script ~ "%}" }
+request_handler_ref    =  { "< " ~ file_path }
+pre_handler_script     =  { (!"%}" ~ ANY)* }
+
+/// Request variables block
+// e.g. @variable=value
 request_variable_name         = { IDENT }
-request_variable_value        = { (!CRLF ~ (inline_script | ANY))* }
-request_variable_declaration  = { "@" ~ request_variable_name ~ SP* ~ "=" ~ SP* ~ request_variable_value ~ CRLF }
-request_variable_declarations = { (request_variable_declaration ~ CRLF*)+ }
+request_variable_value        = { (INPUT)* }
+request_variable_declaration  = { "@" ~ request_variable_name ~ SP* ~ "=" ~ SP* ~ request_variable_value }
+request_variable_declarations = _{ (request_variable_declaration ~ NEWLINE*)+ }
 
-request = _{ request_line ~ CRLF ~ (header_field ~ (CRLF | EOI))* }
+/// Response Reference
+response_reference = @{ "<> " ~ file_path }
 
-request_line       = _{ request_line_start ~ request_target ~ (SP{1, } ~ http_version)? ~ SP* }
-request_line_start = _{ (SP* ~ method ~ SP{1, }) | SP* }
-method             =  { ASCII_ALPHA_UPPER{3, } }
-request_target     =  { url_string }
-http_version       = _{ "HTTP/1.1" | "HTTP/1.0" }
+/// Full request
+request                 = _{ request_line ~ NEWLINE ~ headers ~ (NEWLINE ~ message_body)? }
+request_script_with_sep = _{ NEWLINE* ~ request_separator ~ request_script }
+request_script          =  {
+    NEWLINE* ~ request_variable_declarations? ~ 
+    NEWLINE* ~ request_handler? ~ 
+    NEWLINE* ~ request ~ 
+    NEWLINE* ~ response_handler? ~ 
+    NEWLINE* ~ response_reference? ~ 
+    NEWLINE*
+}
 
-header_field = ${ field_name ~ ":" ~ SP* ~ field_value }
-field_name   =  { token }
-field_value  =  { (!CRLF ~ (inline_script | ANY))* }
-
-file = { SOI ~ CRLF* ~ (request_script ~ CRLF*)* ~ request_separator? ~ CRLF* ~ EOI }
+file = { 
+    SOI ~ NEWLINE* ~ 
+    request_separator? ~ request_script ~ 
+    request_script_with_sep* ~ 
+    request_separator? ~ NEWLINE* ~
+    EOI 
+}

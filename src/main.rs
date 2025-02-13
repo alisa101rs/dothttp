@@ -4,13 +4,13 @@ use std::{
 };
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use color_eyre::Result;
 use dothttp::{
     export,
     output::{parse_format, print::FormattedOutput, CiOutput, Output},
     source::FilesSourceProvider,
     ClientConfig, EnvironmentFileProvider, Runtime, SourceProvider,
 };
+use miette::Result;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -119,12 +119,20 @@ enum FormatType {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<std::process::ExitCode> {
-    color_eyre::install()?;
-
+    miette::set_hook(Box::new(|_| {
+        Box::new(
+            miette::MietteHandlerOpts::new()
+                .terminal_links(true)
+                .unicode(false)
+                .context_lines(4)
+                .tab_width(4)
+                .break_words(true)
+                .build(),
+        )
+    }))?;
     let CliArgs { command, exec, env } = CliArgs::parse();
 
     let command = command.unwrap_or(Command::Execute { exec, env });
-
     match command {
         Command::Execute { exec, env } => return run_execute(environment(env)?, exec).await,
         Command::ExportEnvironment { env, name } => {

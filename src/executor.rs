@@ -1,4 +1,4 @@
-use color_eyre::eyre::Context;
+use miette::Context;
 
 use crate::{
     http::{HttpClient, Request, Response},
@@ -63,15 +63,13 @@ impl<'a> Executor<'a> {
     }
 
     fn pre_process_request(&self, engine: &mut impl ScriptEngine) -> Result<()> {
-        let Some(parser::Handler { script, selection }) = &self.source.script.pre_request_handler
-        else {
+        let Some(parser::Handler { script, .. }) = &self.source.script.pre_request_handler else {
             return Ok(());
         };
 
         engine
             .pre_handle(
                 &script_engine::Script {
-                    selection: selection.clone(),
                     src: script.as_str(),
                 },
                 &self.source.script.request,
@@ -112,14 +110,13 @@ impl<'a> Executor<'a> {
         response: &Response,
         engine: &mut impl ScriptEngine,
     ) -> Result<TestsReport> {
-        let Some(parser::Handler { script, selection }) = &self.source.script.handler else {
+        let Some(parser::Handler { script, .. }) = &self.source.script.handler else {
             return Ok(TestsReport::default());
         };
 
         engine
             .handle(
                 &script_engine::Script {
-                    selection: selection.clone(),
                     src: script.as_str(),
                 },
                 response,
@@ -161,12 +158,11 @@ impl From<&parser::InlineScript> for script_engine::InlineScript {
         let parser::InlineScript {
             script,
             placeholder,
-            selection,
+            ..
         } = inline_script;
         script_engine::InlineScript {
             script: script.clone(),
             placeholder: placeholder.clone(),
-            selection: selection.clone(),
         }
     }
 }
@@ -177,14 +173,12 @@ impl From<&parser::Unprocessed> for script_engine::Unprocessed {
             parser::Unprocessed::WithInline {
                 value,
                 inline_scripts,
-                selection,
             } => script_engine::Unprocessed::WithInline {
                 value: value.clone(),
                 inline_scripts: inline_scripts.iter().map(|script| script.into()).collect(),
-                selection: selection.clone(),
             },
-            parser::Unprocessed::WithoutInline(value, selection) => {
-                script_engine::Unprocessed::WithoutInline(value.clone(), selection.clone())
+            parser::Unprocessed::WithoutInline(value) => {
+                script_engine::Unprocessed::WithoutInline(value.clone())
             }
         }
     }

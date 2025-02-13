@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use color_eyre::eyre::{Result, WrapErr};
+use miette::{bail, Context, IntoDiagnostic, Result};
 use postman::BodyClass;
 use serde_json::Value as DynValue;
 
@@ -19,7 +19,7 @@ pub fn environment(name: String, env: impl EnvironmentProvider) -> Result<()> {
     };
 
     let DynValue::Object(snapshot) = env.snapshot() else {
-        panic!("Snapshot should be valid object")
+        bail!("Snapshot should be `object`")
     };
 
     for (name, value) in snapshot {
@@ -35,6 +35,7 @@ pub fn environment(name: String, env: impl EnvironmentProvider) -> Result<()> {
 
     let mut writer = std::io::stdout();
     serde_json::to_writer_pretty(&mut writer, &environment)
+        .into_diagnostic()
         .wrap_err("Failed to write to output")?;
 
     Ok(())
@@ -135,6 +136,7 @@ impl CollectionExporter {
     fn export(self) -> Result<()> {
         let mut writer = std::io::stdout();
         serde_json::to_writer_pretty(&mut writer, &self.inner)
+            .into_diagnostic()
             .wrap_err("Failed to write to output")?;
 
         Ok(())
@@ -219,7 +221,7 @@ impl CollectionExporter {
             return (postman::Mode::Raw, None);
         };
 
-        let parser::Unprocessed::WithoutInline(ref content_value, _) =
+        let parser::Unprocessed::WithoutInline(ref content_value, ..) =
             content_header.field_value.state
         else {
             return (postman::Mode::Raw, None);
@@ -263,7 +265,7 @@ impl PreRequestScriptHelper {
                 ref inline_scripts,
                 ..
             } => (value, inline_scripts),
-            parser::Unprocessed::WithoutInline(ref value, _) => {
+            parser::Unprocessed::WithoutInline(ref value, ..) => {
                 return value.clone();
             }
         };
@@ -531,12 +533,12 @@ impl ResponseHandlerHelper {
 impl<'a> From<&'a parser::Method> for postman::Method {
     fn from(value: &'a parser::Method) -> Self {
         match value {
-            parser::Method::Get(_) => postman::Method::Get,
-            parser::Method::Post(_) => postman::Method::Post,
-            parser::Method::Delete(_) => postman::Method::Delete,
-            parser::Method::Put(_) => postman::Method::Put,
-            parser::Method::Patch(_) => postman::Method::Patch,
-            parser::Method::Options(_) => postman::Method::Options,
+            parser::Method::Get => postman::Method::Get,
+            parser::Method::Post => postman::Method::Post,
+            parser::Method::Delete => postman::Method::Delete,
+            parser::Method::Put => postman::Method::Put,
+            parser::Method::Patch => postman::Method::Patch,
+            parser::Method::Options => postman::Method::Options,
         }
     }
 }

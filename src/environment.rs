@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use color_eyre::eyre::{anyhow, Context};
+use miette::{miette as anyhow, Context, IntoDiagnostic};
 use serde_json::Value;
 
 pub trait EnvironmentProvider {
@@ -99,7 +99,9 @@ impl EnvironmentProvider for EnvironmentFileProvider {
 
 fn read_json_content(path: &Path) -> crate::Result<Value> {
     match fs::read(path) {
-        Ok(data) => Ok(serde_json::from_slice(&data).context("json deserialization")?),
+        Ok(data) => Ok(serde_json::from_slice(&data)
+            .into_diagnostic()
+            .context("json deserialization")?),
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(serde_json::json!({})),
         Err(e) => Err(anyhow!("IO Error: {e}")),
     }

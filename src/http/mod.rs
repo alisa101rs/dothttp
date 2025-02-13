@@ -51,12 +51,12 @@ pub trait HttpClient {
 impl From<&parser::Method> for Method {
     fn from(method: &parser::Method) -> Self {
         match method {
-            parser::Method::Get(_) => Method::Get,
-            parser::Method::Post(_) => Method::Post,
-            parser::Method::Delete(_) => Method::Delete,
-            parser::Method::Put(_) => Method::Put,
-            parser::Method::Patch(_) => Method::Patch,
-            parser::Method::Options(_) => Method::Options,
+            parser::Method::Get => Method::Get,
+            parser::Method::Post => Method::Post,
+            parser::Method::Delete => Method::Delete,
+            parser::Method::Put => Method::Put,
+            parser::Method::Patch => Method::Patch,
+            parser::Method::Options => Method::Options,
         }
     }
 }

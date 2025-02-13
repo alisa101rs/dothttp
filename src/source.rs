@@ -1,11 +1,8 @@
 use std::{fs, path::Path};
 
-use color_eyre::eyre::Context;
+use crate::parser::{parse, File, RequestScript};
 
-use crate::{
-    parser::{parse, File, RequestScript},
-    Result,
-};
+use miette::{Context, IntoDiagnostic, NamedSource, Result};
 
 #[derive(Debug, Copy, Clone)]
 pub struct SourceItem<'a> {
@@ -43,11 +40,15 @@ impl FileSourceProvider {
         let name = file.as_ref().display().to_string();
 
         let file_contents = fs::read_to_string(&file)
+            .into_diagnostic()
             .with_context(|| format!("Failed opening script file: `{}`", name))?;
 
-        let file = parse(file.as_ref().to_path_buf(), file_contents.as_str())
-            .with_context(|| format!("Failed parsing file: `{}`", name))?;
-
+        let file = parse(file_contents.as_str()).map_err(|er| {
+            er.with_source_code(NamedSource::new(
+                file.as_ref().display().to_string(),
+                file_contents,
+            ))
+        })?;
         Ok(Self {
             file,
             name,

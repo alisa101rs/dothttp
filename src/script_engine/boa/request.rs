@@ -403,12 +403,9 @@ mod tests {
                     inline_scripts: vec![InlineScript {
                         script: "test".to_string(),
                         placeholder: "{{test}}".to_string(),
-                        selection: Default::default(),
                     }],
-                    selection: Default::default(),
                 },
             },
-            selection: parser::Selection::default(),
         }];
 
         let v = Headers::create(&headers, &mut ctx).unwrap();

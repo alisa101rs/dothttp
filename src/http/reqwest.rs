@@ -4,8 +4,8 @@ use std::{
     str::FromStr,
 };
 
-use color_eyre::eyre::Context;
 use http::Uri;
+use miette::{Context, IntoDiagnostic};
 use reqwest::{header::HeaderMap, Client, RequestBuilder, Url};
 
 use crate::{
@@ -50,7 +50,7 @@ impl HttpClient for ReqwestHttpClient {
         if let Some(body) = body {
             request_builder = set_body(body, request_builder);
         }
-        let response = request_builder.send().await?;
+        let response = request_builder.send().await.into_diagnostic()?;
 
         map_reqwest_response(response).await
     }
@@ -63,7 +63,9 @@ fn get_request_target(target: &str) -> Result<Url> {
         Cow::Owned(format!("http://{target}"))
     };
 
-    let parsed = Uri::from_str(target.as_ref()).context("Invalid URI")?;
+    let parsed = Uri::from_str(target.as_ref())
+        .into_diagnostic()
+        .context("Invalid URI")?;
 
     let schema = parsed.scheme().map(|it| it.as_str()).unwrap_or("http");
     let authority = parsed
@@ -109,7 +111,7 @@ async fn map_reqwest_response(response: reqwest::Response) -> Result<Response> {
         status_code: response.status().as_u16(),
         status: response.status().to_string(),
         headers,
-        body: match response.text().await? {
+        body: match response.text().await.into_diagnostic()? {
             body if !body.is_empty() => Some(body),
             _ => None,
         },
@@ -122,7 +124,10 @@ impl TryFrom<&HeaderMap> for Headers {
     fn try_from(value: &HeaderMap) -> Result<Self> {
         let mut headers = vec![];
         for (header_name, header_value) in value.iter() {
-            headers.push((header_name.to_string(), header_value.to_str()?.to_string()))
+            headers.push((
+                header_name.to_string(),
+                header_value.to_str().into_diagnostic()?.to_string(),
+            ))
         }
         Ok(Headers(headers))
     }
